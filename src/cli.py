@@ -34,6 +34,20 @@ def main():
         help="Output directory for generated code",
         default="./output"
     )
+    parser.add_argument(
+        "--endpoints",
+        "-e",
+        nargs="+",
+        help="List of endpoints to explore (e.g., /api/products /api/users)",
+        default=None
+    )
+    parser.add_argument(
+        "--max-iterations",
+        "-m",
+        type=int,
+        help="Maximum number of exploration iterations (default: 100)",
+        default=100
+    )
 
     args = parser.parse_args()
 
@@ -52,8 +66,16 @@ def main():
         print(f"🔍 PHASE 1: AUTONOMOUS API EXPLORATION")
         print(f"{'='*70}\n")
 
-        agent = ExplorationAgent(llm, args.target_url)
-        result = agent.explore()
+        if args.endpoints:
+            print(f"📍 Starting endpoints: {', '.join(args.endpoints)}")
+        print(f"🔄 Max iterations: {args.max_iterations}\n")
+
+        agent = ExplorationAgent(
+            llm,
+            args.target_url,
+            max_iterations=args.max_iterations
+        )
+        result = agent.explore(starting_endpoints=args.endpoints)
 
         print(f"\n{'='*70}")
         print(f"📊 EXPLORATION RESULTS")

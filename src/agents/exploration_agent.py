@@ -45,7 +45,7 @@ Remember: Be systematic and thorough. The quality of your exploration determines
 class ExplorationAgent(BaseAgent):
     """Agent that explores an API to understand its structure"""
 
-    def __init__(self, llm: LLMClient, target_url: str):
+    def __init__(self, llm: LLMClient, target_url: str, max_iterations: int = 100):
         self.executor = ToolExecutor(target_url)
 
         super().__init__(
@@ -53,16 +53,39 @@ class ExplorationAgent(BaseAgent):
             tools=EXPLORATION_TOOLS,
             tool_executor=self.executor.execute,
             system_prompt=EXPLORATION_SYSTEM_PROMPT,
-            max_iterations=100
+            max_iterations=max_iterations
         )
 
-    def explore(self) -> dict:
+    def explore(self, starting_endpoints: list[str] = None) -> dict:
         """
         Explore the target API
 
+        Args:
+            starting_endpoints: Optional list of endpoints to start exploration with
+
         Returns exploration results including endpoints, observations, etc.
         """
-        initial_prompt = f"""Explore the API at {self.executor.target_url}.
+        if starting_endpoints:
+            # User provided specific endpoints to start with
+            endpoints_list = "\n".join([f"- {ep}" for ep in starting_endpoints])
+            initial_prompt = f"""Explore the API at {self.executor.target_url}.
+
+Start by exploring these specific endpoints:
+{endpoints_list}
+
+For each endpoint:
+1. Test it to understand what data it returns
+2. Look for related endpoints (e.g., if /api/products exists, try /api/products/{{id}})
+3. Test query parameters, pagination, filtering
+4. For POST/PUT endpoints, try different request bodies
+5. Document all findings using record_observation
+
+After exploring these endpoints, look for additional related endpoints and patterns.
+
+When you've thoroughly explored the API and feel you have a complete understanding, use the complete_exploration tool."""
+        else:
+            # Default exploration strategy
+            initial_prompt = f"""Explore the API at {self.executor.target_url}.
 
 Start by testing common endpoints like:
 - /health or /api/health
@@ -81,11 +104,19 @@ When you've thoroughly explored the API and feel you have a complete understandi
         result = self.run(initial_prompt)
 
         # Extract exploration data from final result
-        exploration_data = result.get("data", {})
+        # Handle case where agent hits max iterations without calling complete_exploration
+        exploration_data = result.get("data")
+
+        if exploration_data is None:
+            # Agent didn't call complete_exploration, so grab observations from executor
+            exploration_data = {
+                "summary": "Exploration incomplete - reached max iterations",
+                "observations": self.executor.observations
+            }
 
         return {
             "success": result["success"],
             "iterations": result["iterations"],
-            "summary": exploration_data.get("summary", ""),
+            "summary": exploration_data.get("summary", "No summary available"),
             "observations": exploration_data.get("observations", [])
         }
