@@ -41,10 +41,11 @@ Generate a complete, production-ready Fleet environment based on the provided AP
    - Basic tools: process_data, execute_query, load_* functions
 
 4. **Monorepo Structure (pnpm workspace)**:
-   - Root pnpm-workspace.yaml defining workspace packages
-   - Root package.json with workspace scripts
+   - Root pnpm-workspace.yaml defining ONLY Node.js packages (server)
+   - Do NOT include mcp/ in pnpm-workspace.yaml (it's Python, not Node.js)
+   - Root package.json with workspace scripts and "packageManager": "pnpm@9.15.1"
    - server/ package with its own package.json
-   - mcp/ package with Python dependencies
+   - mcp/ package with Python dependencies (pyproject.toml, NOT package.json)
    - mprocs.yaml for running all services together
 
 5. **File Structure**:
@@ -298,8 +299,11 @@ class CodeGeneratorAgent(BaseAgent):
 Create all necessary files following Fleet standards. You MUST generate ALL of these files:
 
 **Root Configuration:**
-1. pnpm-workspace.yaml - Define packages: ["server", "mcp"]
-2. package.json - Root package with "dev": "mprocs" script, pnpm workspace config
+1. pnpm-workspace.yaml - Define packages: ["server"] (ONLY server, NOT mcp!)
+2. package.json - Root package with:
+   - "packageManager": "pnpm@9.15.1"
+   - "dev": "mprocs" script
+   - engines: node "^20.19.4", pnpm "^9.15.1"
 3. mprocs.yaml - Multi-process config for server + mcp
 4. Dockerfile - Production deployment configuration
 5. README.md - Complete setup instructions with pnpm run dev
@@ -323,12 +327,15 @@ Create all necessary files following Fleet standards. You MUST generate ALL of t
 17. mcp/README.md - MCP setup and usage instructions
 
 CRITICAL Requirements:
+- pnpm-workspace.yaml MUST ONLY include ["server"], NOT ["server", "mcp"]
+- mcp/ is a Python package (pyproject.toml), NOT a Node.js package
+- Root package.json MUST have "packageManager": "pnpm@9.15.1"
+- Root package.json MUST have engines: node "^20.19.4", pnpm "^9.15.1"
 - server/src/lib/db.ts MUST use current.sqlite (not seed.db directly)
 - MUST implement DATABASE_PATH → ENV_DB_DIR → default precedence
 - MUST auto-copy seed.db to current.sqlite if not exists
 - mprocs.yaml MUST run both server and mcp processes
 - Root package.json MUST have "dev": "mprocs" script
-- Use pnpm, not npm!
 
 Use write_file for each file, then create_seed_database, then complete_generation.
 
