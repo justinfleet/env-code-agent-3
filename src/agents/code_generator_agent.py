@@ -37,18 +37,28 @@ Generate a complete, production-ready Fleet environment based on the provided AP
    - Uses uv for dependency management (pyproject.toml)
    - Implements Model Context Protocol for LLM interaction
    - Fetches data from local server API (http://localhost:3001/api)
-   - Environment variable: RAMP_ENV=local (for local dev) or production
+   - Environment variable: APP_ENV=local (for local dev) or production
+     - APP_ENV=local → fetches from http://localhost:3001/api
+     - APP_ENV=production → fetches from production API URL
    - Basic tools: process_data, execute_query, load_* functions
 
 4. **Monorepo Structure (pnpm workspace)**:
    - Root pnpm-workspace.yaml defining ONLY Node.js packages (server)
    - Do NOT include mcp/ in pnpm-workspace.yaml (it's Python, not Node.js)
+   - Do NOT include data/ in pnpm-workspace.yaml (it's just database files)
    - Root package.json with workspace scripts and "packageManager": "pnpm@9.15.1"
    - server/ package with its own package.json
    - mcp/ package with Python dependencies (pyproject.toml, NOT package.json)
    - mprocs.yaml for running all services together
 
-5. **File Structure**:
+5. **Optional Components (based on API complexity)**:
+   - Client (SvelteKit): Only if cloning a full-stack app with UI
+   - Meilisearch: Only if API has search/full-text search functionality
+   - Image handling: Only if API serves/manages images (S3 integration)
+   - Additional services: Based on what the API exploration discovers
+   - For simple APIs: Just generate server + mcp (no client needed)
+
+6. **File Structure**:
    ```
    cloned-env/
    ├── pnpm-workspace.yaml       # pnpm workspace config
@@ -78,7 +88,7 @@ Generate a complete, production-ready Fleet environment based on the provided AP
        └── README.md            # MCP setup instructions
    ```
 
-6. **Database Path Handling (CRITICAL)**:
+7. **Database Path Handling (CRITICAL)**:
    In server/src/lib/db.ts, implement this precedence:
    ```typescript
    function resolveDatabasePath() {
@@ -327,14 +337,16 @@ Create all necessary files following Fleet standards. You MUST generate ALL of t
 17. mcp/README.md - MCP setup and usage instructions
 
 CRITICAL Requirements:
-- pnpm-workspace.yaml MUST ONLY include ["server"], NOT ["server", "mcp"]
+- pnpm-workspace.yaml MUST ONLY include ["server"], NOT ["server", "mcp"] or ["server", "data"]
 - mcp/ is a Python package (pyproject.toml), NOT a Node.js package
+- data/ is NOT a workspace package (no package.json)
 - Root package.json MUST have "packageManager": "pnpm@9.15.1"
 - Root package.json MUST have engines: node "^20.19.4", pnpm "^9.15.1"
 - server/src/lib/db.ts MUST use current.sqlite (not seed.db directly)
 - MUST implement DATABASE_PATH → ENV_DB_DIR → default precedence
 - MUST auto-copy seed.db to current.sqlite if not exists
 - mprocs.yaml MUST run both server and mcp processes
+- mprocs.yaml MUST set APP_ENV=local for MCP process (not RAMP_ENV)
 - Root package.json MUST have "dev": "mprocs" script
 
 Use write_file for each file, then create_seed_database, then complete_generation.
