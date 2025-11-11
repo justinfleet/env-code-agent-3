@@ -306,42 +306,84 @@ Auto-generate from the specification's endpoints list.
 
 **CRITICAL FOR EFFICIENCY**: You can call multiple tools in ONE response. Batch file writes together to minimize iterations!
 
-### Generation Phase:
-1. **Generate ALL configuration files in ONE iteration** (6-8 files):
-   - .gitignore, .dockerignore, .npmrc, pnpm-workspace.yaml, package.json, mprocs.yaml, Dockerfile, .github/workflows/deploy.yml
-   - Use multiple write_file calls in a single response!
+### How to Batch Tool Calls (IMPORTANT EXAMPLE):
 
-2. **Generate data layer in ONE iteration**:
-   - data/schema.sql
+**✅ GOOD - Efficient (6 files in 1 iteration):**
+```
+Thinking: I'll create all configuration files now
+Tool call 1: write_file(path=".gitignore", content="...")
+Tool call 2: write_file(path=".dockerignore", content="...")
+Tool call 3: write_file(path=".npmrc", content="...")
+Tool call 4: write_file(path="package.json", content="...")
+Tool call 5: write_file(path="pnpm-workspace.yaml", content="...")
+Tool call 6: write_file(path="mprocs.yaml", content="...")
+```
+Result: 6 files created in 1 iteration ✅
 
-3. **Generate server package in ONE iteration** (3-4 files):
-   - server/package.json, server/tsconfig.json, server/src/lib/db.ts
+**❌ BAD - Inefficient (1 file per iteration):**
+```
+Iteration 1: write_file(path=".gitignore", content="...")
+Iteration 2: write_file(path=".dockerignore", content="...")
+Iteration 3: write_file(path=".npmrc", content="...")
+...
+```
+Result: 6 iterations wasted ❌
 
-4. **Generate ALL route files in ONE iteration**:
-   - server/src/routes/[resource].ts for ALL resources
-   - Don't create routes one at a time - batch them!
+**YOU MUST USE THE GOOD PATTERN!** Multiple tool calls per response is the standard way to work efficiently.
 
-5. **Generate server entry point**:
-   - server/src/index.ts
+### Generation Phase (Expected Flow):
 
-6. **Generate MCP package in ONE iteration** (4-5 files):
-   - mcp/pyproject.toml, mcp/src/[app]_mcp/__init__.py, mcp/src/[app]_mcp/server.py, mcp/src/[app]_mcp/client.py, mcp/README.md
+**Iteration 1**: Create ALL config files (8 files in one response)
+- write_file(.gitignore)
+- write_file(.dockerignore)
+- write_file(.npmrc)
+- write_file(pnpm-workspace.yaml)
+- write_file(package.json)
+- write_file(mprocs.yaml)
+- write_file(Dockerfile)
+- write_file(.github/workflows/deploy.yml)
 
-7. **Generate documentation in ONE iteration**:
-   - API_DOCUMENTATION.md, README.md
+**Iteration 2**: Create data layer
+- write_file(data/schema.sql)
 
-8. **Create seed database**:
-   - Call create_seed_database
+**Iteration 3**: Create server package files (3 files in one response)
+- write_file(server/package.json)
+- write_file(server/tsconfig.json)
+- write_file(server/src/lib/db.ts)
 
-9. **Validation loop**:
-   - Call validate_environment
-   - If fails: read errors, fix files (batch fixes if possible!), re-validate
-   - Repeat until success
+**Iteration 4**: Create ALL route files (N files in one response, where N = number of resources)
+- write_file(server/src/routes/users.ts)
+- write_file(server/src/routes/articles.ts)
+- write_file(server/src/routes/comments.ts)
+- ... (all other routes)
+**DO NOT create routes one at a time!**
 
-10. **Complete**:
-   - Call complete_generation IMMEDIATELY when validation succeeds
+**Iteration 5**: Create server entry point
+- write_file(server/src/index.ts)
 
-**Total target: 6-10 iterations for initial generation** (not 20-30!)
+**Iteration 6**: Create MCP package (5 files in one response)
+- write_file(mcp/pyproject.toml)
+- write_file(mcp/src/[app]_mcp/__init__.py)
+- write_file(mcp/src/[app]_mcp/server.py)
+- write_file(mcp/src/[app]_mcp/client.py)
+- write_file(mcp/README.md)
+
+**Iteration 7**: Create documentation (2 files in one response)
+- write_file(API_DOCUMENTATION.md)
+- write_file(README.md)
+
+**Iteration 8**: Create seed database
+- create_seed_database()
+
+**Iteration 9+**: Validation loop
+- validate_environment()
+- If fails: read errors, fix files, re-validate
+- Repeat until success
+
+**Final iteration**: Complete
+- complete_generation()
+
+**Total expected: 7-12 iterations** (not 20-30!)
 
 ## Debugging Failed Validation:
 

@@ -69,7 +69,8 @@ def main():
         sys.exit(1)
 
     # Initialize LLM client
-    llm = LLMClient(api_key=api_key)
+    # Use higher max_tokens for spec ingestion (needs to generate large JSON)
+    llm = LLMClient(api_key=api_key, max_tokens=8192)
 
     # ========================================
     # BRANCH: from-spec vs clone/explore

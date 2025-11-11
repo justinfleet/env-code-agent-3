@@ -22,16 +22,62 @@ Parse specifications from documentation pages, API specs, or structured files an
 4. **Multi-page Documentation** - May need to fetch multiple related pages
 
 ## Workflow for Documentation URLs:
+
+**YOU MUST FOLLOW THESE STEPS - DO NOT SKIP STEP 4!**
+
 1. Use `fetch_spec` to get the main documentation page
 2. Analyze the content to understand the structure
 3. If the spec is spread across multiple pages, use `fetch_spec` again for additional pages
-4. **CRITICAL**: Extract and parse ALL endpoint information from the HTML/text:
-   - Parse each endpoint's method, path, description
-   - Extract request/response examples from the documentation
-   - Identify all data fields and their types
-   - Infer database schema from the data structures
-5. **Build the complete specification object** with all endpoints and database tables
-6. Call `output_specification` with the **full specification object** (not empty!)
+
+4. **CRITICAL - BUILD THE SPEC OBJECT**: Now you have the text. You MUST parse it:
+
+   a) Read through the fetched text line by line
+   b) Find endpoint definitions (look for: POST /api/users, GET /api/articles, etc.)
+   c) For EACH endpoint you find, extract:
+      - HTTP method (GET, POST, PUT, DELETE)
+      - Path (/api/users, /api/articles/:id)
+      - Description of what it does
+      - Request body structure (what fields it accepts)
+      - Response structure (what fields it returns)
+      - Authentication requirements
+
+   d) From the request/response structures, infer database tables:
+      - If response has "user" object with id, email, username → need "users" table
+      - If request creates "article" with title, body → need "articles" table
+      - Look for relationships (article.author_id → users.id)
+
+   e) Build a complete JSON object with this structure:
+      ```
+      {
+        "api_name": "RealWorld Conduit API",
+        "base_path": "/api",
+        "endpoints": [
+          {
+            "method": "POST",
+            "path": "/api/users",
+            "description": "Register new user",
+            "request_body": {"user": {"email": "string", "password": "string", ...}},
+            "response": {"user": {"id": "number", "email": "string", ...}}
+          },
+          ... all other endpoints ...
+        ],
+        "database": {
+          "tables": [
+            {
+              "name": "users",
+              "fields": [
+                {"name": "id", "type": "INTEGER", "constraints": "PRIMARY KEY AUTOINCREMENT"},
+                {"name": "email", "type": "TEXT", "constraints": "NOT NULL"},
+                ...
+              ]
+            },
+            ... all other tables ...
+          ]
+        }
+      }
+      ```
+
+5. **Call output_specification with the COMPLETE object you just built** (not empty!)
 
 ## Output Format:
 You must output valid JSON with this exact structure:
@@ -398,22 +444,45 @@ This URL may be:
 - A structured API spec (OpenAPI JSON/YAML)
 - A multi-page documentation site
 
-Steps:
-1. Use the fetch_spec tool to retrieve the content from the URL
-2. Analyze the format and content:
-   - If it's a documentation page, extract ALL endpoint information from the text/HTML
-   - If it's structured JSON/YAML, parse the schema
-   - If you see references to other pages with more endpoints, fetch those pages too
-3. **Parse and extract the data** - Read through the fetched HTML/text and extract:
-   - Every endpoint (method + path)
-   - Request bodies and parameters
-   - Response structures
-   - Authentication requirements
-4. **Build the complete specification object** with:
-   - api_name, base_path
-   - endpoints array (ALL endpoints you found)
-   - database schema (inferred from request/response structures)
-5. **Call output_specification with the FULL specification object** - Do NOT call it with empty input!
+Steps (FOLLOW EXACTLY):
+
+1. **Fetch**: Use the fetch_spec tool to retrieve the content from the URL
+
+2. **Analyze**: Look at what you got:
+   - HTML/Markdown docs? You need to parse the text to find endpoints
+   - JSON/YAML spec? Parse the structure directly
+   - Multiple pages referenced? Fetch them too
+
+3. **Extract** (THE IMPORTANT PART - DO NOT SKIP):
+   Read through the fetched text and find:
+   - Every endpoint definition: "POST /api/users", "GET /api/articles", etc.
+   - For EACH endpoint, note: method, path, request format, response format
+   - Authentication info: which endpoints need auth?
+
+4. **Structure** (BUILD THE JSON):
+   Take everything you extracted and create a JSON object:
+   ```
+   {
+     "api_name": "...",
+     "base_path": "/api",
+     "endpoints": [
+       {"method": "POST", "path": "/api/users", "request_body": {...}, "response": {...}},
+       {"method": "GET", "path": "/api/articles", "query_params": [...], "response": {...}},
+       ... (EVERY endpoint you found)
+     ],
+     "database": {
+       "tables": [
+         {"name": "users", "fields": [...]},
+         {"name": "articles", "fields": [...]},
+         ... (ALL tables needed)
+       ]
+     }
+   }
+   ```
+
+5. **Output**: Call output_specification with the COMPLETE JSON object you just built
+   - NOT empty: {}  ❌
+   - WITH all endpoints and tables: {...}  ✅
 
 Be thorough - parse all endpoint details including:
 - HTTP methods and paths
