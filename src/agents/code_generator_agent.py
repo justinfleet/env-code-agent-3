@@ -492,9 +492,10 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
         import time
         import signal
 
-        # Step 0: Verify workspace structure (catch common pnpm workspace issues)
-        print("🔍 Verifying workspace structure...")
+        # Step 0: Auto-fix workspace structure (delete stale cache and reinstall)
+        print("🔍 Ensuring clean workspace state...")
         try:
+            # Check if workspace is recognized
             result = subprocess.run(
                 ["pnpm", "list", "--depth", "0"],
                 cwd=self.output_dir,
@@ -504,17 +505,46 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
             )
 
             if "server" not in result.stdout:
-                return {
-                    "success": False,
-                    "phase": "workspace",
-                    "errors": f"Workspace 'server' package not recognized by pnpm.\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}",
-                    "stdout": result.stdout,
-                    "message": "❌ pnpm workspace is not recognizing the server package. Try deleting pnpm-lock.yaml and node_modules, then reinstall."
-                }
-        except Exception as e:
-            print(f"⚠️  Warning: Workspace verification failed: {e}")
+                print("⚠️  Workspace cache issue detected - cleaning and reinstalling...")
 
-        print("✅ Workspace structure looks good")
+                # Auto-fix: Delete lockfile and node_modules
+                import shutil
+                lockfile = os.path.join(self.output_dir, "pnpm-lock.yaml")
+                node_modules = os.path.join(self.output_dir, "node_modules")
+                server_nm = os.path.join(self.output_dir, "server", "node_modules")
+
+                for path in [lockfile, node_modules, server_nm]:
+                    if os.path.exists(path):
+                        if os.path.isfile(path):
+                            os.remove(path)
+                        else:
+                            shutil.rmtree(path)
+
+                print("   Cleaned stale workspace cache")
+
+                # Force fresh install
+                clean_result = subprocess.run(
+                    ["pnpm", "install", "--force"],
+                    cwd=self.output_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=120
+                )
+
+                if clean_result.returncode != 0:
+                    return {
+                        "success": False,
+                        "phase": "workspace-fix",
+                        "errors": clean_result.stderr,
+                        "stdout": clean_result.stdout,
+                        "message": "❌ Failed to fix workspace after cleaning cache."
+                    }
+
+                print("   ✓ Workspace rebuilt successfully")
+        except Exception as e:
+            print(f"⚠️  Warning: Workspace auto-fix failed: {e}")
+
+        print("✅ Workspace ready")
 
         # Step 1: pnpm install
         print("🔍 Running pnpm install...")
