@@ -11,45 +11,43 @@ import json
 
 CODE_GENERATION_SYSTEM_PROMPT = """You are an expert full-stack developer specializing in Fleet environment creation.
 
+## Your Task:
 Generate a complete, production-ready Fleet environment based on the provided API specification.
 
 ## Required Files (Complete Checklist):
 
 **Configuration Files:**
-1. .gitignore - MUST exclude: node_modules/, data/*.sqlite, data/*.db, *.sqlite-shm, *.sqlite-wal, mprocs.log, dist/, .env, .DS_Store
-2. .dockerignore - MUST exclude: node_modules, .git, *.log, data/current.sqlite, data/*.sqlite-shm, data/*.sqlite-wal
-3. .npmrc - MUST contain: "side-effects-cache=false"
+1. .gitignore - Exclude node_modules, runtime SQLite files, logs, build artifacts, .env
+2. .dockerignore - Exclude dev files from Docker builds
+3. .npmrc - pnpm configuration
 4. .github/workflows/deploy.yml - Basic CI/CD workflow
 
 **Root Configuration:**
-5. pnpm-workspace.yaml - MUST be: packages: ["server"] (ONLY server, NOT mcp or data!)
-6. package.json - Root package with:
-   - "packageManager": "pnpm@9.15.1"
-   - "dev": "mprocs" script
-   - engines: { "node": ">=20.9.0", "pnpm": "^9.15.1" }
-7. mprocs.yaml - Multi-process config (see format below)
-8. Dockerfile - Production deployment with pnpm@9.15.1
+5. pnpm-workspace.yaml - Define workspace packages
+6. package.json - Root package with workspace config
+7. mprocs.yaml - Multi-process dev configuration
+8. Dockerfile - Production deployment
 9. README.md - Complete setup instructions
 
 **Data Layer:**
-10. data/schema.sql - Database schema (NO CHECK constraints!)
+10. data/schema.sql - Database schema
 
 **Server Package:**
-11. server/package.json - TypeScript + Express dependencies
+11. server/package.json - Server dependencies
 12. server/tsconfig.json - TypeScript configuration
-13. server/src/lib/db.ts - Database connection with path precedence (see below)
+13. server/src/lib/db.ts - Database connection with path precedence
 14. server/src/routes/[resource].ts - Route files for each resource
 15. server/src/index.ts - Main Express server
 
 **MCP Package:**
 16. mcp/pyproject.toml - Python dependencies with uv
 17. mcp/src/[app_name]_mcp/__init__.py - Package init
-18. mcp/src/[app_name]_mcp/server.py - MCP server (see format below)
+18. mcp/src/[app_name]_mcp/server.py - MCP server implementation
 19. mcp/src/[app_name]_mcp/client.py - API client
 20. mcp/README.md - MCP setup instructions
 
 **Documentation:**
-21. API_DOCUMENTATION.md - Complete API documentation with all endpoints
+21. API_DOCUMENTATION.md - Complete API documentation
 
 ## Fleet Requirements (CRITICAL):
 
@@ -175,18 +173,129 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(\`Server listening on port \${PORT}\`));
 ```
 
-## Implementation Details:
-- Use TypeScript + Express for server
-- Use better-sqlite3 for database
-- CORS enabled
-- Proper error handling
-- RESTful endpoints
+### 8. Optional Components (based on API complexity)
+- **Client (SvelteKit)**: Only if cloning a full-stack app with UI
+- **Meilisearch**: Only if API has search/full-text search functionality
+- **Image handling**: Only if API serves/manages images (S3 integration)
+- **Additional services**: Based on what the API exploration discovers
+- **For simple APIs**: Just generate server + mcp (no client needed)
+
+## File Structure:
+```
+cloned-env/
+├── pnpm-workspace.yaml       # pnpm workspace config
+├── package.json              # Root package.json with "dev": "mprocs"
+├── mprocs.yaml               # Multi-process dev config
+├── Dockerfile                # Production deployment
+├── README.md                 # Setup instructions
+├── data/
+│   ├── schema.sql           # Database schema (NO CHECK constraints)
+│   └── seed.db              # Source database (ready to copy)
+├── server/
+│   ├── package.json         # Server dependencies
+│   ├── tsconfig.json        # TypeScript config
+│   ├── src/
+│   │   ├── index.ts        # Main Express server
+│   │   ├── lib/
+│   │   │   └── db.ts       # Database connection with path precedence
+│   │   └── routes/
+│   │       └── [resource].ts
+└── mcp/
+    ├── pyproject.toml       # Python dependencies (uv)
+    ├── src/
+    │   └── [app]_mcp/
+    │       ├── __init__.py
+    │       ├── server.py    # MCP server implementation
+    │       └── client.py    # API client
+    └── README.md            # MCP setup instructions
+```
+
+## Code Style:
+- **Default Stack**: TypeScript + Express for server (well-tested, good ecosystem)
+- Use TypeScript with proper types for server code
+- Use Python 3.11+ for MCP server
+- Use better-sqlite3 for database (Node.js)
+- Proper error handling with try/catch
+- RESTful endpoint design
+- Consistent response format: { data: ..., error: ... }
+
+## Required Configuration Files:
+
+### .gitignore
+MUST exclude:
+- node_modules/ and **/node_modules
+- Runtime SQLite: data/*.sqlite, data/*.db, *.sqlite-shm, *.sqlite-wal
+- Logs: mprocs.log, *.log
+- Build artifacts: dist/, build/, .cache
+- Environment: .env, .env.local, server/.env
+- Editor: .vscode, .idea, .cursor/
+- OS: .DS_Store
+- Meilisearch: meilisearch, meilisearch.db/, data/meilisearch/
+
+### .dockerignore
+MUST exclude:
+- Development: node_modules, .git, .gitignore, README.md
+- Logs and cache: *.log, .cache, coverage
+- Environment: .env, .env.local
+- Editors: .vscode, .idea
+- Runtime SQLite: data/current.sqlite, data/*.sqlite-shm, data/*.sqlite-wal
+- Meilisearch data: data/meilisearch
+
+### .npmrc
+MUST contain:
+```
+side-effects-cache=false
+```
+
+### .github/workflows/deploy.yml
+Basic GitHub Actions workflow for CI/CD (build and deploy Docker image).
+Include: checkout, Docker build, optional deployment steps.
+Make it generic and environment-agnostic (no hardcoded AWS/ECR credentials).
+
+### API_DOCUMENTATION.md
+MUST document:
+- API overview and base URL
+- All endpoints with HTTP methods
+- Request parameters (query, path, body)
+- Response formats and examples
+- Error responses
+Auto-generate from the specification's endpoints list.
 
 ## Available Tools:
 - write_file: Write any file to output directory
 - create_seed_database: Create seed.db from schema.sql
 - validate_environment: Run pnpm install + build + dev, check health endpoint
 - complete_generation: Mark as done (only after validation succeeds!)
+
+## Steps (Follow in Order):
+1. Create .gitignore (exclude node_modules, runtime SQLite files, logs, etc.)
+2. Create .dockerignore (exclude dev files from Docker builds)
+3. Create .npmrc (pnpm configuration: side-effects-cache=false)
+4. Create pnpm-workspace.yaml (packages: ["server"] - ONLY server, NOT mcp!)
+5. Create root package.json with:
+   - "packageManager": "pnpm@9.15.1"
+   - "dev": "mprocs" script
+   - engines: { "node": ">=20.9.0", "pnpm": "^9.15.1" }
+6. Create mprocs.yaml with server and mcp processes (cmd MUST be array!)
+7. Create Dockerfile for production (use pnpm@9.15.1, NOT 8.x!)
+8. Create .github/workflows/deploy.yml for CI/CD
+9. Create data/schema.sql with proper SQLite schema (NO CHECK constraints)
+10. Create server/package.json with dependencies (express, better-sqlite3, cors, typescript, tsx)
+11. Create server/tsconfig.json
+12. Create server/src/lib/db.ts with DATABASE_PATH precedence logic
+13. Create server/src/routes/[resource].ts for each resource
+14. Create server/src/index.ts as main server (MUST use PORT env var)
+15. Create mcp/pyproject.toml with uv dependencies
+16. Create mcp/src/[app]_mcp/__init__.py
+17. Create mcp/src/[app]_mcp/server.py (MUST use create_initialization_options()!)
+18. Create mcp/src/[app]_mcp/client.py (API client)
+19. Create mcp/README.md with MCP setup instructions
+20. Create API_DOCUMENTATION.md with all endpoint documentation
+21. Create root README.md with full setup instructions
+22. Call create_seed_database to create seed.db from schema
+23. Call validate_environment to test everything works
+24. If validation fails, fix issues and re-validate
+25. Call complete_generation when validation succeeds
 
 ## Workflow:
 1. Generate ALL 21 files listed above using write_file
@@ -198,10 +307,14 @@ app.listen(PORT, () => console.log(\`Server listening on port \${PORT}\`));
    - Use write_file to fix the problems
    - Re-run validate_environment
 5. Repeat step 4 until validation succeeds
-6. Call complete_generation
+6. IMMEDIATELY call complete_generation when validation succeeds
 
-IMPORTANT: Do NOT call complete_generation until validate_environment returns success=true!
-Validation will catch missing dependencies, TypeScript errors, config issues, etc.
+CRITICAL: As soon as validate_environment returns success=true, you MUST call complete_generation immediately.
+Do NOT make any additional changes after validation succeeds!
+Do NOT try to add more features or improvements after validation passes!
+If you want to improve something, do it BEFORE running validation, not after.
+
+The moment you see "success": true from validate_environment, your next action must be complete_generation.
 """
 
 
@@ -299,7 +412,7 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
             tools=tools,
             tool_executor=self._execute_tool,
             system_prompt=CODE_GENERATION_SYSTEM_PROMPT,
-            max_iterations=40  # Increased to allow for validation + fix iterations
+            max_iterations=50  # Increased to allow for validation + fix iterations + buffer
         )
 
     def _execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> Any:
@@ -378,6 +491,30 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
         import subprocess
         import time
         import signal
+
+        # Step 0: Verify workspace structure (catch common pnpm workspace issues)
+        print("🔍 Verifying workspace structure...")
+        try:
+            result = subprocess.run(
+                ["pnpm", "list", "--depth", "0"],
+                cwd=self.output_dir,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if "server" not in result.stdout:
+                return {
+                    "success": False,
+                    "phase": "workspace",
+                    "errors": f"Workspace 'server' package not recognized by pnpm.\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}",
+                    "stdout": result.stdout,
+                    "message": "❌ pnpm workspace is not recognizing the server package. Try deleting pnpm-lock.yaml and node_modules, then reinstall."
+                }
+        except Exception as e:
+            print(f"⚠️  Warning: Workspace verification failed: {e}")
+
+        print("✅ Workspace structure looks good")
 
         # Step 1: pnpm install
         print("🔍 Running pnpm install...")
@@ -475,12 +612,17 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
             # Check if process is still running
             if proc.poll() is not None:
                 stdout, stderr = proc.communicate()
+
+                # Combine stdout and stderr for better error visibility
+                combined_output = f"STDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
+
                 return {
                     "success": False,
                     "phase": "dev",
-                    "errors": stderr,
+                    "errors": combined_output,
                     "stdout": stdout,
-                    "message": "❌ Server process exited immediately. Check for runtime errors."
+                    "stderr": stderr,
+                    "message": "❌ Server process exited immediately. Check for runtime errors in stdout/stderr."
                 }
 
             # Try to hit the health endpoint
@@ -498,10 +640,25 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
                             "message": f"❌ Health check failed with status {response.status}"
                         }
             except Exception as e:
+                # Try to capture any output from the process before reporting failure
+                try:
+                    # Process is still running, so peek at output (non-blocking)
+                    import select
+                    stdout_data = ""
+                    stderr_data = ""
+                    if proc.stdout and select.select([proc.stdout], [], [], 0)[0]:
+                        stdout_data = proc.stdout.read()
+                    if proc.stderr and select.select([proc.stderr], [], [], 0)[0]:
+                        stderr_data = proc.stderr.read()
+
+                    error_context = f"Health check failed: {str(e)}\n\nProcess output:\nSTDOUT: {stdout_data}\nSTDERR: {stderr_data}"
+                except:
+                    error_context = str(e)
+
                 return {
                     "success": False,
                     "phase": "dev",
-                    "errors": str(e),
+                    "errors": error_context,
                     "stdout": "",
                     "message": f"❌ Failed to connect to health endpoint: {str(e)}"
                 }
