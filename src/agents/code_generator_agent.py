@@ -24,13 +24,19 @@ Generate a complete, production-ready Fleet environment based on the provided AP
    - Uses current.sqlite at runtime (auto-copied from seed.db if not exists)
    - Database path precedence: DATABASE_PATH → ENV_DB_DIR → ./data/current.sqlite
 
-2. **Server (TypeScript + Express)**:
-   - Express + TypeScript server in server/ directory
-   - Proper error handling with try/catch
-   - CORS enabled
+2. **Server (HTTP API)**:
+   - HTTP server in server/ directory
+   - Technology: TypeScript + Express (default), but other stacks acceptable:
+     - Alternative: Python + FastAPI, Go + stdlib, Bun + Elysia, etc.
+   - Proper error handling (try/catch or equivalent)
+   - CORS enabled for cross-origin requests
    - Real SQL queries (no mocks!)
-   - Routes organized by resource
-   - Uses better-sqlite3 with Drizzle ORM (optional, can use raw better-sqlite3)
+   - Routes/endpoints organized by resource
+   - SQLite database access via:
+     - Node.js: better-sqlite3 (with or without Drizzle ORM)
+     - Python: sqlite3 module
+     - Go: database/sql
+     - Other: any SQLite driver
 
 3. **MCP Server (Python)**:
    - Python-based MCP server in mcp/ directory
@@ -121,9 +127,11 @@ Generate a complete, production-ready Fleet environment based on the provided AP
 - complete_generation: Signal when all files are generated
 
 ## Code Style:
+- **Default Stack**: TypeScript + Express for server (well-tested, good ecosystem)
+  - Note: Other stacks (Python, Go, Rust) are valid but not currently supported by this generator
 - Use TypeScript with proper types for server code
 - Use Python 3.11+ for MCP server
-- Use better-sqlite3 for database
+- Use better-sqlite3 for database (Node.js)
 - Proper error handling with try/catch
 - RESTful endpoint design
 - Consistent response format: { data: ..., error: ... }
