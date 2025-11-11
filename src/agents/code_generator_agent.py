@@ -225,7 +225,7 @@ class CodeGeneratorAgent(BaseAgent):
             tools=tools,
             tool_executor=self._execute_tool,
             system_prompt=CODE_GENERATION_SYSTEM_PROMPT,
-            max_iterations=50
+            max_iterations=25  # Reduced from 50 - typically completes in 10-15 iterations
         )
 
     def _execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> Any:
