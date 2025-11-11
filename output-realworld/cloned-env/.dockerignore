@@ -3,24 +3,32 @@ node_modules
 .git
 .gitignore
 README.md
+mcp/README.md
+API_DOCUMENTATION.md
 
 # Logs and cache
 *.log
 .cache
 coverage
 
-# Environment
+# Environment files
 .env
 .env.local
+.env.*.local
 
-# Editors
+# Editor directories
 .vscode
 .idea
+.cursor
 
-# Runtime SQLite files (keep seed.db but exclude runtime)
+# Runtime SQLite databases
 data/current.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 
 # Meilisearch data
 data/meilisearch
+
+# Python cache
+__pycache__
+*.pyc

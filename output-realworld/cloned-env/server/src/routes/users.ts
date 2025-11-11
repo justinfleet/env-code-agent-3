@@ -1,72 +1,105 @@
-import express from 'express';
+import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import db from '../lib/db';
-import { generateToken, hashPassword, verifyPassword, authenticateToken, AuthRequest } from '../lib/auth';
-import { formatUser } from '../lib/utils';
 
-const router = express.Router();
+const router = Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// POST /api/users - Register
-router.post('/', (req, res) => {
+// Helper to generate JWT
+function generateToken(userId: number) {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '30d' });
+}
+
+// Helper to get user by email
+function getUserByEmail(email: string) {
+  return db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+}
+
+// Helper to get user by id
+function getUserById(id: number) {
+  return db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
+}
+
+// Helper to format user response
+function formatUser(user: any, token?: string) {
+  return {
+    email: user.email,
+    token: token || generateToken(user.id),
+    username: user.username,
+    bio: user.bio || '',
+    image: user.image || ''
+  };
+}
+
+// POST /api/users/login
+router.post('/login', async (req: Request, res: Response) => {
   try {
-    const { user } = req.body;
-    
-    if (!user || !user.username || !user.email || !user.password) {
-      return res.status(400).json({ error: 'Username, email, and password are required' });
+    const { user: { email, password } } = req.body;
+
+    if (!email || !password) {
+      return res.status(422).json({ 
+        errors: { body: ['email and password are required'] } 
+      });
     }
 
-    // Check if user already exists
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ? OR username = ?').get(user.email, user.username);
-    if (existingUser) {
-      return res.status(409).json({ error: 'User with this email or username already exists' });
+    const user = getUserByEmail(email);
+    if (!user) {
+      return res.status(422).json({ 
+        errors: { body: ['email or password is invalid'] } 
+      });
     }
 
-    // Create new user
-    const passwordHash = hashPassword(user.password);
-    const result = db.prepare(`
-      INSERT INTO users (username, email, password_hash, bio, image)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(user.username, user.email, passwordHash, null, null);
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (!isValidPassword) {
+      return res.status(422).json({ 
+        errors: { body: ['email or password is invalid'] } 
+      });
+    }
 
-    // Get the created user
-    const newUser = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
-    const token = generateToken(newUser);
-
-    res.status(201).json({
-      user: formatUser(newUser, token)
-    });
+    res.json({ user: formatUser(user) });
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// POST /api/users/login - Login
-router.post('/login', (req, res) => {
+// POST /api/users (registration)
+router.post('/', async (req: Request, res: Response) => {
   try {
-    const { user } = req.body;
+    const { user: { username, email, password } } = req.body;
+
+    if (!username || !email || !password) {
+      return res.status(422).json({ 
+        errors: { body: ['username, email and password are required'] } 
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = getUserByEmail(email);
+    if (existingUser) {
+      return res.status(422).json({ 
+        errors: { body: ['email already taken'] } 
+      });
+    }
+
+    const existingUsername = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    if (existingUsername) {
+      return res.status(422).json({ 
+        errors: { body: ['username already taken'] } 
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
     
-    if (!user || !user.email || !user.password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
+    const result = db.prepare(
+      'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)'
+    ).run(username, email, passwordHash);
 
-    // Find user by email
-    const dbUser = db.prepare('SELECT * FROM users WHERE email = ?').get(user.email);
-    if (!dbUser) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
-    // Verify password
-    if (!verifyPassword(user.password, dbUser.password_hash)) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
-    const token = generateToken(dbUser);
-
-    res.json({
-      user: formatUser(dbUser, token)
-    });
+    const newUser = getUserById(result.lastInsertRowid as number);
+    res.json({ user: formatUser(newUser) });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Registration error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

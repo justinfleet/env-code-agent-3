@@ -1,33 +1,32 @@
-# Use Node.js 20 with Alpine Linux
+# Use official Node.js runtime as base image
 FROM node:20-alpine
 
-# Install pnpm 9.15.1
+# Install pnpm
 RUN npm install -g pnpm@9.15.1
 
 # Set working directory
 WORKDIR /app
 
-# Copy root package files
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-
-# Copy server package files
+# Copy package files
+COPY package.json pnpm-workspace.yaml ./
 COPY server/package.json ./server/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
 # Copy source code
-COPY . .
+COPY server/ ./server/
+COPY data/ ./data/
 
 # Build the application
 RUN pnpm build
 
-# Expose port
-EXPOSE 3002
+# Expose the port
+EXPOSE 3003
 
-# Set environment variables
+# Set production environment
 ENV NODE_ENV=production
-ENV PORT=3002
+ENV PORT=3003
 
 # Start the server
 CMD ["pnpm", "start"]

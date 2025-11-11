@@ -231,23 +231,48 @@ class SpecificationIngestionAgent(BaseAgent):
             try:
                 data = json.loads(content)
                 content_type = "JSON"
+                # For structured specs, return as-is (already compact)
+                print(f"✅ Fetched {len(content)} characters ({content_type} format)")
+                return {
+                    "success": True,
+                    "content": content,
+                    "content_type": content_type,
+                    "url": url,
+                    "message": f"Successfully fetched specification from {url}"
+                }
             except json.JSONDecodeError:
                 try:
                     data = yaml.safe_load(content)
                     content_type = "YAML"
+                    # For structured specs, return as-is
+                    print(f"✅ Fetched {len(content)} characters ({content_type} format)")
+                    return {
+                        "success": True,
+                        "content": content,
+                        "content_type": content_type,
+                        "url": url,
+                        "message": f"Successfully fetched specification from {url}"
+                    }
                 except:
-                    data = None
-                    content_type = "Markdown/Text"
+                    # HTML/Markdown - needs extraction
+                    content_type = "HTML/Markdown"
+                    print(f"✅ Fetched {len(content)} characters ({content_type} format)")
+                    print(f"🔍 Extracting structured data from HTML...")
 
-            print(f"✅ Fetched {len(content)} characters ({content_type} format)")
+                    # Extract summary instead of returning full HTML
+                    summary = self._extract_html_summary(content)
 
-            return {
-                "success": True,
-                "content": content,
-                "content_type": content_type,
-                "url": url,
-                "message": f"Successfully fetched specification from {url}"
-            }
+                    print(f"✅ Extracted summary ({len(summary)} chars, reduced from {len(content)})")
+
+                    return {
+                        "success": True,
+                        "content": summary,  # Return summary, not full HTML!
+                        "content_type": content_type,
+                        "url": url,
+                        "original_size": len(content),
+                        "summary_size": len(summary),
+                        "message": f"Successfully fetched and extracted from {url} (reduced {len(content)} → {len(summary)} chars)"
+                    }
 
         except Exception as e:
             return {
@@ -255,6 +280,60 @@ class SpecificationIngestionAgent(BaseAgent):
                 "error": str(e),
                 "message": f"❌ Failed to fetch spec: {str(e)}"
             }
+
+    def _extract_html_summary(self, html_content: str) -> str:
+        """Extract key information from HTML, discarding markup"""
+        from html.parser import HTMLParser
+
+        class TextExtractor(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.text_parts = []
+                self.in_script = False
+                self.in_style = False
+
+            def handle_starttag(self, tag, attrs):
+                if tag in ['script', 'style']:
+                    self.in_script = True
+
+            def handle_endtag(self, tag):
+                if tag in ['script', 'style']:
+                    self.in_script = False
+
+            def handle_data(self, data):
+                if not self.in_script and data.strip():
+                    self.text_parts.append(data.strip())
+
+        # Extract text from HTML
+        parser = TextExtractor()
+        try:
+            parser.feed(html_content)
+            text = '\n'.join(parser.text_parts)
+        except:
+            # Fallback: simple tag stripping
+            import re
+            text = re.sub(r'<[^>]+>', '', html_content)
+            text = re.sub(r'\s+', ' ', text).strip()
+
+        # Further reduce: Keep only lines with API-relevant keywords
+        lines = text.split('\n')
+        relevant_lines = []
+        keywords = ['endpoint', 'api', 'request', 'response', 'post', 'get', 'put', 'delete',
+                   'path', 'parameter', 'body', 'schema', 'authentication', 'token', 'header',
+                   'example', 'json', 'field', 'type', 'required', 'optional']
+
+        for line in lines:
+            line_lower = line.lower()
+            # Keep lines that contain API-relevant keywords or look like endpoints
+            if any(kw in line_lower for kw in keywords) or '/' in line or '{' in line:
+                relevant_lines.append(line)
+
+        # Limit to reasonable size (max 10K chars)
+        summary = '\n'.join(relevant_lines)
+        if len(summary) > 10000:
+            summary = summary[:10000] + "\n\n[Content truncated for token efficiency...]"
+
+        return summary
 
     def _read_local_spec(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Read specification from local file"""

@@ -92,10 +92,14 @@ class BaseAgent:
 
                     try:
                         result = self.tool_executor(tool_use.name, tool_use.input)
+
+                        # Convert result to compact string representation
+                        result_str = str(result) if len(str(result)) < 200 else str(result)[:200] + "..."
+
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": tool_use.id,
-                            "content": str(result)
+                            "content": result_str  # Compact string, not full result
                         })
 
                         # Check if tool signals completion
@@ -103,7 +107,12 @@ class BaseAgent:
                             is_complete = True
                             final_data = result
 
-                        print(f"   ✓ Result: {str(result)[:100]}...")
+                        # Compact console output
+                        if isinstance(result, dict):
+                            # Show just success status and key field
+                            status = "✓" if result.get("success") else "✗"
+                            key_field = result.get("file") or result.get("db") or ("OK" if result.get("validated") else "")
+                            print(f"   {status} {key_field if key_field else str(result)[:80]}")
                     except Exception as e:
                         print(f"   ✗ Error: {str(e)}")
                         tool_results.append({

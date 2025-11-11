@@ -531,10 +531,10 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
 
         self.generated_files.append(rel_path)
 
+        # Return compact result (don't echo content or verbose messages)
         return {
             "success": True,
-            "message": f"File written: {rel_path}",
-            "path": full_path
+            "file": rel_path  # Just the filename, not full path or message
         }
 
     def _read_file(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -557,12 +557,12 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
 
             line_count = len(content.split('\n'))
 
+            # Return content (needed for debugging) but keep result compact
             return {
                 "success": True,
-                "path": rel_path,
-                "content": content,
-                "lines": line_count,
-                "message": f"✓ Read {rel_path} ({line_count} lines)"
+                "file": rel_path,
+                "content": content,  # Agent needs this to inspect files
+                "lines": line_count
             }
         except Exception as e:
             return {
@@ -597,9 +597,10 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
         conn.commit()
         conn.close()
 
+        # Compact result
         return {
             "success": True,
-            "message": f"Database created: {params.get('output_path')}"
+            "db": params.get('output_path')
         }
 
     def _validate_environment(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -838,9 +839,10 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
 
             print("✅ Health check passed")
 
+            # Compact success result (errors are verbose because agent needs them to debug)
             return {
                 "success": True,
-                "message": "🎉 All validation checks passed! Environment is working correctly."
+                "validated": True
             }
 
         except Exception as e:

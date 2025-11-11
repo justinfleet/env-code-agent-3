@@ -4,24 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "realworld-mcp"
-version = "0.1.0"
-description = "RealWorld API MCP Server"
-authors = [
-    {name = "Fleet Environment", email = "dev@fleet.com"}
-]
+version = "1.0.0"
+description = "MCP server for RealWorld Conduit API"
+authors = [{name = "RealWorld Team"}]
 dependencies = [
     "mcp>=1.0.0",
     "httpx>=0.25.0",
     "pydantic>=2.0.0"
 ]
 requires-python = ">=3.11"
-
-[tool.uv]
-dev-dependencies = [
-    "pytest>=7.0.0",
-    "black>=23.0.0",
-    "ruff>=0.1.0"
-]
 
 [project.scripts]
 realworld-mcp = "realworld_mcp.server:main"

@@ -1,7 +1,8 @@
 {
-  "name": "realworld-api-environment",
+  "name": "realworld-conduit",
   "version": "1.0.0",
-  "description": "RealWorld API Fleet environment",
+  "description": "RealWorld Conduit API implementation",
+  "private": true,
   "packageManager": "pnpm@9.15.1",
   "engines": {
     "node": ">=20.9.0",
@@ -13,8 +14,6 @@
     "start": "pnpm --filter server start"
   },
   "devDependencies": {
-    "mprocs": "^0.7.1"
-  },
-  "keywords": ["realworld", "api", "fleet"],
-  "private": true
+    "mprocs": "^0.6.4"
+  }
 }

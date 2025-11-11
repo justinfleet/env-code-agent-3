@@ -1,102 +1,139 @@
-import express from 'express';
+import { Router, Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import db from '../lib/db';
-import { authenticateToken, optionalAuth, AuthRequest } from '../lib/auth';
-import { formatProfile } from '../lib/utils';
 
-const router = express.Router();
+const router = Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// GET /api/profiles/:username - Get profile
-router.get('/:username', optionalAuth, (req: AuthRequest, res) => {
+// Middleware to optionally authenticate user
+function optionalAuth(req: any, res: Response, next: any) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    if (err) {
+      req.user = null;
+    } else {
+      req.user = user;
+    }
+    next();
+  });
+}
+
+// Middleware to require authentication
+function requireAuth(req: any, res: Response, next: any) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid token' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// Helper to get user by username
+function getUserByUsername(username: string) {
+  return db.prepare('SELECT * FROM users WHERE username = ?').get(username) as any;
+}
+
+// Helper to check if user is following another user
+function isFollowing(followerId: number, followingId: number): boolean {
+  const result = db.prepare(
+    'SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?'
+  ).get(followerId, followingId);
+  return !!result;
+}
+
+// Helper to format profile response
+function formatProfile(user: any, currentUserId?: number) {
+  return {
+    username: user.username,
+    bio: user.bio || '',
+    image: user.image || '',
+    following: currentUserId ? isFollowing(currentUserId, user.id) : false
+  };
+}
+
+// GET /api/profiles/:username
+router.get('/:username', optionalAuth, (req: any, res: Response) => {
   try {
     const { username } = req.params;
-
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    
+    const user = getUserByUsername(username);
     if (!user) {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
-    let following = false;
-    if (req.user) {
-      const followRecord = db.prepare(`
-        SELECT 1 FROM follows 
-        WHERE follower_id = ? AND following_id = ?
-      `).get(req.user.id, user.id);
-      following = !!followRecord;
-    }
-
-    res.json({
-      profile: formatProfile(user, following)
-    });
+    const currentUserId = req.user?.userId;
+    res.json({ profile: formatProfile(user, currentUserId) });
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// POST /api/profiles/:username/follow - Follow user
-router.post('/:username/follow', authenticateToken, (req: AuthRequest, res) => {
+// POST /api/profiles/:username/follow
+router.post('/:username/follow', requireAuth, (req: any, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
     const { username } = req.params;
+    const currentUserId = req.user.userId;
 
-    const targetUser = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-    if (!targetUser) {
+    const user = getUserByUsername(username);
+    if (!user) {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
-    if (targetUser.id === req.user.id) {
-      return res.status(400).json({ error: 'Cannot follow yourself' });
+    if (user.id === currentUserId) {
+      return res.status(422).json({ 
+        errors: { body: ['Cannot follow yourself'] }
+      });
     }
 
     // Check if already following
-    const existingFollow = db.prepare(`
-      SELECT 1 FROM follows 
-      WHERE follower_id = ? AND following_id = ?
-    `).get(req.user.id, targetUser.id);
-
-    if (!existingFollow) {
-      db.prepare(`
-        INSERT INTO follows (follower_id, following_id)
-        VALUES (?, ?)
-      `).run(req.user.id, targetUser.id);
+    if (!isFollowing(currentUserId, user.id)) {
+      db.prepare(
+        'INSERT INTO follows (follower_id, following_id) VALUES (?, ?)'
+      ).run(currentUserId, user.id);
     }
 
-    res.json({
-      profile: formatProfile(targetUser, true)
-    });
+    res.json({ profile: formatProfile(user, currentUserId) });
   } catch (error) {
-    console.error('Follow user error:', error);
+    console.error('Follow error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// DELETE /api/profiles/:username/follow - Unfollow user
-router.delete('/:username/follow', authenticateToken, (req: AuthRequest, res) => {
+// DELETE /api/profiles/:username/follow
+router.delete('/:username/follow', requireAuth, (req: any, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
     const { username } = req.params;
+    const currentUserId = req.user.userId;
 
-    const targetUser = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-    if (!targetUser) {
+    const user = getUserByUsername(username);
+    if (!user) {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
-    db.prepare(`
-      DELETE FROM follows 
-      WHERE follower_id = ? AND following_id = ?
-    `).run(req.user.id, targetUser.id);
+    // Remove follow relationship
+    db.prepare(
+      'DELETE FROM follows WHERE follower_id = ? AND following_id = ?'
+    ).run(currentUserId, user.id);
 
-    res.json({
-      profile: formatProfile(targetUser, false)
-    });
+    res.json({ profile: formatProfile(user, currentUserId) });
   } catch (error) {
-    console.error('Unfollow user error:', error);
+    console.error('Unfollow error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

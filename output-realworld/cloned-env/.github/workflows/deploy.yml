@@ -1,4 +1,4 @@
-name: Deploy
+name: Build and Deploy
 
 on:
   push:
@@ -9,35 +9,29 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-
-    - name: Install pnpm
-      run: npm install -g pnpm@9.15.1
-
-    - name: Install dependencies
-      run: pnpm install
-
-    - name: Build project
-      run: pnpm build
-
-    - name: Build Docker image
-      run: |
-        docker build -t realworld-api:latest .
-        
-    # Add deployment steps here as needed
-    # Example for AWS ECR:
-    # - name: Deploy to ECR
-    #   env:
-    #     AWS_DEFAULT_REGION: us-east-1
-    #     AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-    #   run: |
-    #     aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-    #     docker tag realworld-api:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realworld-api:latest
-    #     docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/realworld-api:latest
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.15.1
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build application
+        run: pnpm build
+      
+      - name: Build Docker image
+        run: docker build -t realworld-conduit:${{ github.sha }} .
+      
+      # Add deployment steps here based on your deployment target
+      # For example, push to container registry, deploy to cloud provider, etc.

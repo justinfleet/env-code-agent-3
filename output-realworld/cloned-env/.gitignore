@@ -2,35 +2,46 @@
 node_modules/
 **/node_modules
 
-# Runtime SQLite files
+# Runtime SQLite databases
 data/*.sqlite
 data/*.db
 *.sqlite-shm
 *.sqlite-wal
 
 # Logs
-*.log
 mprocs.log
+*.log
+logs/
 
 # Build artifacts
 dist/
 build/
 .cache
 
-# Environment variables
+# Environment files
 .env
 .env.local
+.env.*.local
 server/.env
 
 # Editor directories
-.vscode
-.idea
+.vscode/
+.idea/
 .cursor/
 
-# OS files
+# OS generated files
 .DS_Store
+Thumbs.db
 
 # Meilisearch
 meilisearch
 meilisearch.db/
 data/meilisearch/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
