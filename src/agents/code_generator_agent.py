@@ -374,7 +374,7 @@ Create all necessary files following Fleet standards. You MUST generate ALL of t
 6. package.json - Root package with:
    - "packageManager": "pnpm@9.15.1"
    - "dev": "mprocs" script
-   - engines: node "^20.19.4", pnpm "^9.15.1"
+   - engines: node ">=20.9.0", pnpm "^9.15.1"
 7. mprocs.yaml - Multi-process config for server + mcp
 8. Dockerfile - Production deployment with pnpm@9.15.1 (NOT 8.x!)
 9. README.md - Complete setup instructions with pnpm run dev
@@ -409,7 +409,7 @@ CRITICAL Requirements:
 - mcp/ is a Python package (pyproject.toml), NOT a Node.js package
 - data/ is NOT a workspace package (no package.json)
 - Root package.json MUST have "packageManager": "pnpm@9.15.1"
-- Root package.json MUST have engines: node "^20.19.4", pnpm "^9.15.1"
+- Root package.json MUST have engines: node ">=20.9.0", pnpm "^9.15.1"
 - server/src/lib/db.ts MUST use current.sqlite (not seed.db directly)
 - MUST implement DATABASE_PATH → ENV_DB_DIR → default precedence
 - MUST auto-copy seed.db to current.sqlite if not exists
