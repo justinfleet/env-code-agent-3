@@ -73,6 +73,25 @@ The business requirements are the source of truth for how the API should behave.
 - **Uses current.sqlite at runtime** - Auto-copied from seed.db if doesn't exist
 - **Database path precedence** - DATABASE_PATH → ENV_DB_DIR → ./data/current.sqlite
 
+### CRITICAL: Seed Data Password Hashing
+When generating seed data with user accounts that have passwords, you MUST use a real bcrypt hash.
+The test password "password" with bcrypt cost 10 hashes to:
+```
+$2b$10$QKu3ViFOt0WKM3kOmZrt2eDn2y7c/KLt6073vLknBCH1ajvEIffci
+```
+
+Use this EXACT hash in your seed data INSERT statements for all test users:
+```sql
+INSERT INTO users (username, password, role) VALUES
+  ('admin', '$2b$10$QKu3ViFOt0WKM3kOmZrt2eDn2y7c/KLt6073vLknBCH1ajvEIffci', 'admin'),
+  ('storeowner', '$2b$10$QKu3ViFOt0WKM3kOmZrt2eDn2y7c/KLt6073vLknBCH1ajvEIffci', 'store_owner'),
+  ('customer1', '$2b$10$QKu3ViFOt0WKM3kOmZrt2eDn2y7c/KLt6073vLknBCH1ajvEIffci', 'customer'),
+  ('customer2', '$2b$10$QKu3ViFOt0WKM3kOmZrt2eDn2y7c/KLt6073vLknBCH1ajvEIffci', 'customer');
+```
+
+DO NOT use placeholder hashes like `$2b$10$8K1p/a0dLR5K4X2X...` - these will NOT work with bcrypt.compareSync().
+The hash above is a REAL bcrypt hash of the literal string "password" and will work correctly.
+
 server/src/lib/db.ts MUST implement this exact pattern:
 ```typescript
 function resolveDatabasePath() {
