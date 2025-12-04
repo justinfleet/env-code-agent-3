@@ -437,10 +437,47 @@ Examples:
   → read_file("server/src/lib/db.ts") to check imports
   → Fix the type error and rewrite
 
+## Debugging Workflow Test Failures:
+
+When workflow-validation fails, the fix_guidance field tells you what to fix:
+
+- "Expected status=available, got pending" for pet ID 1
+  → read_file("data/schema.sql") and check the INSERT for pets
+  → Ensure pet with id=1 has status='available'
+  → Rewrite schema.sql with the fix, then call create_seed_database again
+
+- "Expected status 200, got 401" on guest endpoints
+  → read_file the route file and check if authenticateToken middleware is applied
+  → Check business_requirements.endpoint_auth - if guests should access, remove auth
+  → Rewrite the route file with the fix
+
+- "Expected status 403, got 200" (authorization bypass)
+  → The operation succeeded but should have been forbidden
+  → Add requireRole() middleware or ownership check based on business_requirements
+  → Check business_requirements.roles and business_requirements.endpoint_auth
+
+- "Pet is not available for purchase" when it should be
+  → This usually means seed data has wrong pet status or previous test polluted state
+  → The database is automatically reset before workflow tests, so fix seed data
+
+- "Invalid credentials" on login
+  → Password hashes in seed data are wrong
+  → Use the bcrypt hash: $2b$10$QKu3ViFOt0WKM3kOmZrt2eDn2y7c/KLt6073vLknBCH1ajvEIffci
+
 CRITICAL: As soon as validate_environment returns success=true, you MUST call complete_generation immediately.
 Do NOT make any additional changes after validation succeeds!
 Do NOT try to add more features or improvements after validation passes!
 If you want to improve something, do it BEFORE running validation, not after.
+
+CRITICAL: Do NOT call complete_generation if workflow tests are failing!
+If workflow-validation fails, you MUST fix the issues before completing:
+- SEED DATA issues: Fix the INSERT statements in data/schema.sql to have correct initial data
+- AUTHENTICATION issues: Check business_requirements.endpoint_auth to see which endpoints need auth
+- AUTHORIZATION issues: Add proper role checks (requireRole middleware) based on business_requirements
+- BUSINESS LOGIC issues: Implement the validation rules and state transitions from business_requirements
+
+The workflows represent the expected behavior. If they fail, your code is wrong and needs fixing.
+Do not give up - keep iterating until all workflows pass or you run out of iterations.
 
 The moment you see "success": true from validate_environment, your next action must be complete_generation.
 """
@@ -1150,9 +1187,29 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
     def _run_workflow_tests(self, workflows: list) -> Dict[str, Any]:
         """Run workflow validation tests against the running server"""
         from ..core.workflow_runner import WorkflowRunner
+        import shutil
 
         if not workflows:
             return {"success": True, "passed": 0, "failed": 0, "total": 0}
+
+        # Reset database to seed state before running workflows
+        # This ensures clean state and prevents pollution from previous test runs
+        data_dir = os.path.join(self.output_dir, 'data')
+        seed_db = os.path.join(data_dir, 'seed.db')
+        current_db = os.path.join(data_dir, 'current.sqlite')
+
+        if os.path.exists(seed_db):
+            try:
+                # Remove WAL/SHM files if they exist
+                for ext in ['-wal', '-shm']:
+                    wal_file = current_db + ext
+                    if os.path.exists(wal_file):
+                        os.remove(wal_file)
+                # Copy seed.db to current.sqlite
+                shutil.copy2(seed_db, current_db)
+                print("   🔄 Database reset to seed state")
+            except Exception as e:
+                print(f"   ⚠️  Warning: Could not reset database: {e}")
 
         runner = WorkflowRunner(base_url=f"http://localhost:{self.port}")
         result = runner.run_workflows(workflows)

@@ -1,5 +1,5 @@
 {
-  "name": "swagger-petstore-fleet",
+  "name": "petstore-api",
   "version": "1.0.0",
   "description": "Swagger Petstore API Fleet Environment",
   "packageManager": "pnpm@9.15.1",
@@ -9,6 +9,12 @@
   },
   "scripts": {
     "dev": "cd server && pnpm dev",
-    "build": "pnpm --filter server build"
+    "build": "pnpm --filter server build",
+    "start": "pnpm --filter server start"
+  },
+  "keywords": ["petstore", "api", "fleet"],
+  "license": "MIT",
+  "devDependencies": {
+    "mprocs": "^0.6.4"
   }
 }

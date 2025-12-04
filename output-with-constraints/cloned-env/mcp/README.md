@@ -1,122 +1,102 @@
-# Swagger Petstore MCP Server
+# Petstore MCP Server
 
-This is an MCP (Model Context Protocol) server for the Swagger Petstore API. It provides tools for interacting with pets, orders, and users in the petstore system.
+Model Context Protocol (MCP) server for the Petstore API. This server provides tools that allow LLMs to interact with the Petstore API, including browsing pets, managing inventory, and handling orders.
 
 ## Features
 
-- **Pet Management**: Browse pets by status/tags, view pet details
-- **Order Management**: Place orders, view/cancel orders  
-- **User Management**: Create accounts, login, manage profiles
-- **Store Operations**: Check inventory, manage store data
-- **Role-Based Access**: Supports guest, customer, store_owner, and admin roles
+- **Pet Management**: Browse pets by status or tags, get detailed pet information
+- **Inventory**: Check store inventory counts
+- **User Authentication**: Login and manage user profiles
+- **Order Management**: Place orders and track order status
+- **Role-based Access**: Respects API role permissions (customer, store_owner, admin)
 
-## Installation
+## Setup
 
-Install dependencies using uv:
-
+1. Install dependencies using uv:
 ```bash
-uv install
+cd mcp
+uv sync
 ```
 
-## Configuration
-
-Set environment variables:
-
+2. Set environment variables:
 ```bash
-# For local development
-export APP_ENV=local
-export API_BASE_URL=http://localhost:3002
-
-# For production
-export APP_ENV=production  
-export API_BASE_URL=https://your-petstore-api.com
+export API_BASE_URL=http://localhost:3002  # Petstore API URL
 ```
 
-## Usage
-
-Run the MCP server:
-
+3. Run the MCP server:
 ```bash
-uv run python -m swagger_petstore_mcp.server
+uv run python -m petstore_mcp.server
 ```
-
-The server will start and listen for MCP protocol messages on stdin/stdout.
 
 ## Available Tools
 
-### Pet Tools
-- `get_all_pets_by_status` - Get pets by status (available/pending/sold)
-- `get_pet_by_id` - Get specific pet details
-- `find_pets_by_tags` - Find pets with specific tags
-- `add_pet` - Add new pet (requires auth, store_owner/admin only)
+### Public Tools (no authentication required)
+- `get_pet_by_id`: Get detailed information about a specific pet
 
-### Store Tools  
-- `get_store_inventory` - Get inventory counts by status
-- `place_order` - Place an order for a pet
-- `get_order` - Get order details
-- `cancel_order` - Cancel an order
+### Authenticated Tools (requires auth_token)
+- `login_user`: Authenticate and get access token
+- `get_pets_by_status`: Find pets by status (available, pending, sold)
+- `get_pets_by_tags`: Find pets by tags
+- `get_store_inventory`: Get inventory counts by status
+- `get_user_profile`: Get user profile information
+- `get_order`: Get order details
+- `place_order`: Place an order for a pet
 
-### User Tools
-- `create_user` - Create new user account
-- `login_user` - Login and get auth token
-- `get_user_profile` - View user profile
-
-### System Tools
-- `health_check` - Check API health status
+### Privileged Tools (store_owner/admin only)
+- `create_pet`: Add new pets to the store
 
 ## Authentication
 
-Most operations require authentication. Use `login_user` tool first to get a token:
+Most tools require authentication. Use the `login_user` tool first to get an auth token:
 
 ```json
 {
-  "username": "customer1", 
-  "password": "password"
-}
-```
-
-Then use the returned token for authenticated operations.
-
-## Role Permissions
-
-- **Guest**: Browse pets, view inventory (no auth required)
-- **Customer**: Place/cancel orders, manage own profile
-- **Store Owner**: Manage pets, view all orders, approve orders
-- **Admin**: Full access, delete users, change roles
-
-## Example Usage
-
-1. Check health:
-```json
-{"tool": "health_check", "arguments": {}}
-```
-
-2. Browse available pets:
-```json
-{"tool": "get_all_pets_by_status", "arguments": {"status": "available"}}
-```
-
-3. Login as customer:
-```json
-{"tool": "login_user", "arguments": {"username": "customer1", "password": "password"}}
-```
-
-4. Place order:
-```json
-{
-  "tool": "place_order",
+  "tool": "login_user",
   "arguments": {
-    "pet_id": 1,
-    "token": "your_jwt_token_here"
+    "username": "customer1",
+    "password": "password"
   }
 }
 ```
 
-## Development
+Then use the returned token in other tool calls:
 
-The MCP server connects to the local petstore API server. Make sure the API server is running on the configured port (default: 3002).
+```json
+{
+  "tool": "get_pets_by_status",
+  "arguments": {
+    "status": "available",
+    "auth_token": "your-jwt-token-here"
+  }
+}
+```
 
-For development with the included sample data:
-- Admin user: `admin` / `password`
-- Store owner: `storeowner` / `password`  
-- Customer: `customer1` / `password`
+## Test Users
+
+The system includes these test users (password: "password"):
+- `admin` (role: admin) - Full access
+- `storeowner` (role: store_owner) - Manage pets and orders
+- `customer1` (role: customer) - Place and view own orders
+- `customer2` (role: customer) - Place and view own orders
+
+## Example Usage
+
+1. **Login as a customer:**
+```json
+{"tool": "login_user", "arguments": {"username": "customer1", "password": "password"}}
+```
+
+2. **Browse available pets:**
+```json
+{"tool": "get_pets_by_status", "arguments": {"status": "available", "auth_token": "..."}}
+```
+
+3. **Place an order:**
+```json
+{"tool": "place_order", "arguments": {"pet_id": 1, "auth_token": "..."}}
+```
+
+4. **Check inventory (as store owner):**
+```json
+{"tool": "get_store_inventory", "arguments": {"auth_token": "..."}}
+```
