@@ -118,7 +118,18 @@ def main():
             import json
             with open(spec_file, 'r') as f:
                 code_agent.specification = json.load(f)
-            print(f"📋 Loaded specification from .spec.json\n")
+            print(f"📋 Loaded specification from .spec.json")
+
+            # Also load workflows if available
+            workflows_file = os.path.join(env_dir, "workflows.yaml")
+            if os.path.exists(workflows_file):
+                import yaml
+                with open(workflows_file, 'r') as f:
+                    workflows_data = yaml.safe_load(f)
+                    if workflows_data and 'workflows' in workflows_data:
+                        code_agent.specification['workflows'] = workflows_data['workflows']
+                        print(f"📋 Loaded {len(workflows_data['workflows'])} workflows from workflows.yaml")
+            print()
 
         # Run validation and let the agent fix issues
         validate_prompt = f"""You are validating an existing Fleet environment at: {env_dir}
@@ -330,6 +341,20 @@ Start by running validate_environment to see the current state."""
     print(f"   Generated {len(code_result['generated_files'])} files:")
     for file in code_result['generated_files']:
         print(f"   - {file}")
+
+    # Save specification and workflows for later validation
+    import json
+    spec_file = os.path.join(output_dir, ".spec.json")
+    with open(spec_file, 'w') as f:
+        json.dump(spec, f, indent=2)
+    print(f"\n   📋 Saved specification to .spec.json")
+
+    if spec.get('workflows'):
+        import yaml
+        workflows_file = os.path.join(output_dir, "workflows.yaml")
+        with open(workflows_file, 'w') as f:
+            yaml.dump({"workflows": spec['workflows']}, f, default_flow_style=False, sort_keys=False)
+        print(f"   📋 Saved {len(spec['workflows'])} workflows to workflows.yaml")
 
     # ========================================
     # COMPLETE

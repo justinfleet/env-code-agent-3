@@ -924,6 +924,35 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
 
                 print(f"✅ API validation passed ({spec_validation.get('passed', 0)} tests)")
 
+            # Step 5: Run workflow tests if workflows are defined
+            workflows = self.specification.get('workflows', []) if self.specification else []
+            if workflows:
+                print("🔍 Running workflow validation tests...")
+                workflow_result = self._run_workflow_tests(workflows)
+
+                if not workflow_result['success']:
+                    # Print detailed failure info to console
+                    print(f"\n❌ Workflow Tests Failed: {workflow_result.get('failed', 0)}/{workflow_result.get('total', 0)} failed")
+                    print("\n   Failed workflows:")
+                    for result in workflow_result.get('results', []):
+                        if not result['success']:
+                            last_step = result.get('steps', [{}])[-1]
+                            print(f"     - {result['name']}: {last_step.get('error', 'Unknown error')}")
+                    print()
+
+                    return {
+                        "success": False,
+                        "phase": "workflow-validation",
+                        "errors": f"{workflow_result.get('failed', 0)} workflow tests failed",
+                        "workflow_results": workflow_result.get('results', []),
+                        "passed_count": workflow_result.get('passed', 0),
+                        "failed_count": workflow_result.get('failed', 0),
+                        "stdout": "",
+                        "message": f"❌ Workflow validation failed: {workflow_result.get('failed', 0)} tests failed"
+                    }
+
+                print(f"✅ Workflow validation passed ({workflow_result.get('passed', 0)} tests)")
+
             # Compact success result (errors are verbose because agent needs them to debug)
             return {
                 "success": True,
@@ -1076,6 +1105,18 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
                 "total": total,
                 "message": f"All {len(passed_tests)} endpoint tests passed"
             }
+
+    def _run_workflow_tests(self, workflows: list) -> Dict[str, Any]:
+        """Run workflow validation tests against the running server"""
+        from ..core.workflow_runner import WorkflowRunner
+
+        if not workflows:
+            return {"success": True, "passed": 0, "failed": 0, "total": 0}
+
+        runner = WorkflowRunner(base_url=f"http://localhost:{self.port}")
+        result = runner.run_workflows(workflows)
+
+        return result
 
     def generate_code(self, specification: Dict[str, Any]) -> Dict[str, Any]:
         """

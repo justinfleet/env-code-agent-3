@@ -267,100 +267,271 @@ Checks before allowing operations:
 6. **Ownership patterns** - Common pattern: user owns resource, admins bypass
 """
 
+WORKFLOW_GENERATION_SYSTEM_PROMPT = """You are an expert at creating executable API test workflows.
+
+## Your Task:
+Given business requirements (auth, roles, state transitions, validation rules, pre-conditions),
+generate comprehensive test workflows that verify the API implementation is correct.
+
+## What are Workflows?
+Workflows are executable test scenarios that verify both API functionality AND business rule enforcement.
+They serve as:
+1. **Validation tests** - Run against generated code to verify correctness
+2. **Living documentation** - Show how the API should be used
+3. **Business rule coverage** - Ensure constraints are actually enforced
+
+## Workflow Structure:
+Each workflow has:
+- `name`: Unique identifier (snake_case)
+- `description`: What this workflow tests
+- `category`: "happy_path", "authorization", "validation", "state_transition", or "error_handling"
+- `steps`: Ordered list of API calls with expectations
+
+## Step Structure:
+```yaml
+- action: "POST /user/login"           # HTTP method + path
+  as_role: "customer"                   # Which test user role to use (optional)
+  description: "Login as customer"      # What this step does
+  body:                                 # Request body (for POST/PUT)
+    username: "{{customer_username}}"
+    password: "{{customer_password}}"
+  expect:
+    status: 200                         # Expected HTTP status
+    body_contains:                      # Partial body matching
+      token: "{{save:auth_token}}"      # Save value for later use
+
+- action: "GET /pet/{{pet_id}}"        # Use saved variables
+  headers:
+    Authorization: "Bearer {{auth_token}}"
+  expect:
+    status: 200
+    body_contains:
+      status: "available"
+```
+
+## Variable Syntax:
+- `{{variable}}` - Use a previously saved variable
+- `{{save:variable_name}}` - Save this value from response
+- `{{customer_username}}` - Built-in test user credentials
+- `{{store_owner_username}}` - Built-in test user credentials
+- `{{admin_username}}` - Built-in test user credentials
+- `{{test_password}}` - Built-in password for all test users
+- `{{available_pet_id}}` - Built-in: ID of an available pet from seed data
+- `{{pending_pet_id}}` - Built-in: ID of a pending pet from seed data
+- `{{sold_pet_id}}` - Built-in: ID of a sold pet from seed data
+
+## Required Workflow Categories:
+
+### 1. Happy Path Workflows
+Normal successful operations:
+- Customer login and browse pets
+- Customer places order successfully
+- Store owner approves and delivers order
+- Full purchase lifecycle
+
+### 2. Authorization Workflows
+Role-based access control tests:
+- Customer cannot create/edit/delete pets (403)
+- Customer cannot approve orders (403)
+- Customer cannot view others' orders (403)
+- Guest cannot place orders (401)
+
+### 3. Validation Workflows
+Business rule enforcement:
+- Cannot order unavailable pet (400)
+- Cannot order pet with active order (400)
+- Quantity must be 1 (400)
+
+### 4. State Transition Workflows
+Verify state machines work correctly:
+- Order creation changes pet to pending
+- Order delivery changes pet to sold
+- Order cancellation returns pet to available
+- Only admin can relist sold pets
+
+### 5. Pre-condition Workflows
+Pre-condition check enforcement:
+- Cannot delete pet with active orders (400)
+- Cannot delete user with active orders (400)
+- Cannot modify delivered orders (400)
+
+## Output Format:
+Use the `output_workflows` tool with a YAML structure containing all workflows.
+Generate at least 8-12 workflows covering all categories.
+"""
+
 
 class BusinessRequirementAgent(BaseAgent):
     """Agent that analyzes business constraints and determines implementation requirements"""
 
-    def __init__(self, llm: LLMClient):
-        # Define tools for business requirement analysis
-        tools = [
-            {
-                "name": "analyze_constraint",
-                "description": "Analyze a single business constraint to understand what it requires",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "constraint": {
-                            "type": "string",
-                            "description": "The constraint text being analyzed"
-                        },
-                        "category": {
-                            "type": "string",
-                            "enum": ["ordering", "pet_management", "user_management", "order_management", "inventory", "other"],
-                            "description": "Category of this constraint"
-                        },
-                        "schema_impact": {
-                            "type": "string",
-                            "description": "What database schema changes are needed, if any"
-                        },
-                        "application_impact": {
-                            "type": "string",
-                            "description": "What application code logic is needed"
-                        },
-                        "affected_endpoints": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Which endpoints are affected (e.g., 'POST /pet', 'GET /store/order/:id')"
-                        }
+    # Tools for requirements analysis phase
+    REQUIREMENTS_TOOLS = [
+        {
+            "name": "analyze_constraint",
+            "description": "Analyze a single business constraint to understand what it requires",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "constraint": {
+                        "type": "string",
+                        "description": "The constraint text being analyzed"
                     },
-                    "required": ["constraint", "category", "application_impact"]
-                }
-            },
-            {
-                "name": "output_requirements",
-                "description": "Output the complete business requirements specification with both schema and application layer requirements",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "requirements": {
+                    "category": {
+                        "type": "string",
+                        "enum": ["ordering", "pet_management", "user_management", "order_management", "inventory", "other"],
+                        "description": "Category of this constraint"
+                    },
+                    "schema_impact": {
+                        "type": "string",
+                        "description": "What database schema changes are needed, if any"
+                    },
+                    "application_impact": {
+                        "type": "string",
+                        "description": "What application code logic is needed"
+                    },
+                    "affected_endpoints": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Which endpoints are affected (e.g., 'POST /pet', 'GET /store/order/:id')"
+                    }
+                },
+                "required": ["constraint", "category", "application_impact"]
+            }
+        },
+        {
+            "name": "output_requirements",
+            "description": "Output the complete business requirements specification with both schema and application layer requirements",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "requirements": {
+                        "type": "object",
+                        "description": "Complete requirements specification",
+                        "properties": {
+                            "schema_changes": {
+                                "type": "object",
+                                "description": "Database schema changes needed"
+                            },
+                            "auth_config": {
+                                "type": "object",
+                                "description": "Authentication configuration"
+                            },
+                            "roles": {
+                                "type": "object",
+                                "description": "Role definitions and permissions"
+                            },
+                            "endpoint_auth": {
+                                "type": "array",
+                                "description": "Authorization rules per endpoint"
+                            },
+                            "state_transitions": {
+                                "type": "array",
+                                "description": "Automatic state changes"
+                            },
+                            "validation_rules": {
+                                "type": "array",
+                                "description": "Data validation rules"
+                            },
+                            "pre_conditions": {
+                                "type": "array",
+                                "description": "Pre-condition checks before operations"
+                            }
+                        },
+                        "required": ["schema_changes", "auth_config", "roles", "endpoint_auth"]
+                    }
+                },
+                "required": ["requirements"]
+            }
+        }
+    ]
+
+    # Tools for workflow generation phase
+    WORKFLOW_TOOLS = [
+        {
+            "name": "output_workflows",
+            "description": "Output the complete set of validation workflows in YAML format",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "workflows": {
+                        "type": "array",
+                        "description": "List of workflow definitions",
+                        "items": {
                             "type": "object",
-                            "description": "Complete requirements specification",
                             "properties": {
-                                "schema_changes": {
-                                    "type": "object",
-                                    "description": "Database schema changes needed"
+                                "name": {
+                                    "type": "string",
+                                    "description": "Unique workflow name (snake_case)"
                                 },
-                                "auth_config": {
-                                    "type": "object",
-                                    "description": "Authentication configuration"
+                                "description": {
+                                    "type": "string",
+                                    "description": "What this workflow tests"
                                 },
-                                "roles": {
-                                    "type": "object",
-                                    "description": "Role definitions and permissions"
+                                "category": {
+                                    "type": "string",
+                                    "enum": ["happy_path", "authorization", "validation", "state_transition", "error_handling"],
+                                    "description": "Workflow category"
                                 },
-                                "endpoint_auth": {
+                                "steps": {
                                     "type": "array",
-                                    "description": "Authorization rules per endpoint"
-                                },
-                                "state_transitions": {
-                                    "type": "array",
-                                    "description": "Automatic state changes"
-                                },
-                                "validation_rules": {
-                                    "type": "array",
-                                    "description": "Data validation rules"
-                                },
-                                "pre_conditions": {
-                                    "type": "array",
-                                    "description": "Pre-condition checks before operations"
+                                    "description": "Ordered list of test steps",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "action": {
+                                                "type": "string",
+                                                "description": "HTTP method + path (e.g., 'POST /user/login')"
+                                            },
+                                            "description": {
+                                                "type": "string",
+                                                "description": "What this step does"
+                                            },
+                                            "headers": {
+                                                "type": "object",
+                                                "description": "Request headers"
+                                            },
+                                            "body": {
+                                                "type": "object",
+                                                "description": "Request body for POST/PUT"
+                                            },
+                                            "expect": {
+                                                "type": "object",
+                                                "description": "Expected response",
+                                                "properties": {
+                                                    "status": {
+                                                        "type": "integer",
+                                                        "description": "Expected HTTP status code"
+                                                    },
+                                                    "body_contains": {
+                                                        "type": "object",
+                                                        "description": "Expected fields in response body"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "required": ["action", "expect"]
+                                    }
                                 }
                             },
-                            "required": ["schema_changes", "auth_config", "roles", "endpoint_auth"]
+                            "required": ["name", "description", "category", "steps"]
                         }
-                    },
-                    "required": ["requirements"]
-                }
+                    }
+                },
+                "required": ["workflows"]
             }
-        ]
+        }
+    ]
 
+    def __init__(self, llm: LLMClient):
         super().__init__(
             llm=llm,
-            tools=tools,
+            tools=self.REQUIREMENTS_TOOLS,
             tool_executor=self._execute_tool,
             system_prompt=BUSINESS_REQUIREMENT_SYSTEM_PROMPT,
             max_iterations=20
         )
         self.requirements = None
+        self.workflows = None
         self.constraint_analyses = []
 
     def _execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> Any:
@@ -410,6 +581,51 @@ class BusinessRequirementAgent(BaseAgent):
             return {
                 "complete": True,
                 "message": "✅ Business requirements specification created successfully"
+            }
+
+        elif tool_name == "output_workflows":
+            workflows = tool_input.get("workflows")
+
+            if not workflows:
+                return {
+                    "complete": False,
+                    "success": False,
+                    "error": "workflows parameter is required"
+                }
+
+            if not isinstance(workflows, list) or len(workflows) == 0:
+                return {
+                    "complete": False,
+                    "success": False,
+                    "error": "workflows must be a non-empty list"
+                }
+
+            # Validate each workflow has required fields
+            for i, workflow in enumerate(workflows):
+                required = ["name", "description", "category", "steps"]
+                missing = [f for f in required if f not in workflow]
+                if missing:
+                    return {
+                        "complete": False,
+                        "success": False,
+                        "error": f"Workflow {i+1} missing required fields: {missing}"
+                    }
+
+            self.workflows = workflows
+
+            # Print summary
+            categories = {}
+            for w in workflows:
+                cat = w.get('category', 'unknown')
+                categories[cat] = categories.get(cat, 0) + 1
+
+            print(f"\n   ✅ Generated {len(workflows)} workflows:")
+            for cat, count in sorted(categories.items()):
+                print(f"      - {cat}: {count}")
+
+            return {
+                "complete": True,
+                "message": f"✅ Generated {len(workflows)} validation workflows"
             }
 
         else:
@@ -515,13 +731,25 @@ Be thorough and specific - this specification will be used to generate actual wo
             print(f"   Validation rules: {len(self.requirements.get('validation_rules', []))} rule(s)")
             print(f"   Pre-conditions: {len(self.requirements.get('pre_conditions', []))} check(s)")
 
+            # Phase 2: Generate validation workflows
+            print(f"\n{'='*70}")
+            print(f"📋 GENERATING VALIDATION WORKFLOWS")
+            print(f"{'='*70}\n")
+
+            workflows = self._generate_workflows(specification)
+
             # Create enriched specification
             enriched_spec = self._apply_requirements(specification, self.requirements)
+
+            # Add workflows to enriched spec
+            if workflows:
+                enriched_spec['workflows'] = workflows
 
             return {
                 "success": True,
                 "enriched_specification": enriched_spec,
                 "requirements": self.requirements,
+                "workflows": workflows,
                 "constraint_analyses": self.constraint_analyses
             }
         else:
@@ -614,3 +842,68 @@ Be thorough and specific - this specification will be used to generate actual wo
         enriched['pre_conditions'] = requirements.get('pre_conditions', [])
 
         return enriched
+
+    def _generate_workflows(self, specification: Dict[str, Any]) -> list:
+        """
+        Generate validation workflows based on the analyzed requirements.
+        This runs as a separate phase with different tools and system prompt.
+        """
+        if not self.requirements:
+            print("   ⚠️  No requirements to generate workflows from")
+            return []
+
+        # Switch to workflow generation mode
+        self.tools = self.WORKFLOW_TOOLS
+        self.system_prompt = WORKFLOW_GENERATION_SYSTEM_PROMPT
+
+        # Format requirements for the prompt
+        requirements_json = json.dumps(self.requirements, indent=2)
+        spec_summary = self._summarize_spec(specification)
+
+        workflow_prompt = f"""Based on the following business requirements, generate comprehensive validation workflows.
+
+## API Specification Summary:
+{spec_summary}
+
+## Business Requirements:
+{requirements_json}
+
+## Your Task:
+Generate validation workflows that test:
+
+1. **Happy Path** - Normal successful operations
+   - Login flows for different roles
+   - Successful purchase flow
+   - Order approval and delivery
+
+2. **Authorization** - Role-based access control
+   - Test that customers cannot access store_owner endpoints
+   - Test that guests cannot access authenticated endpoints
+   - Test ownership checks (user can only see own orders)
+
+3. **Validation** - Business rule enforcement
+   - Cannot order unavailable pets
+   - Quantity must be 1
+   - Cannot order pet with existing active order
+
+4. **State Transitions** - Verify state machines
+   - Order creation → pet becomes pending
+   - Order delivery → pet becomes sold
+   - Order cancellation → pet returns to available
+
+5. **Pre-conditions** - Pre-condition checks
+   - Cannot delete pet with active orders
+   - Cannot modify delivered orders
+
+Generate at least 8-12 workflows covering all these categories.
+Use the output_workflows tool to submit the complete workflow list.
+"""
+
+        # Run the workflow generation
+        result = self.run(workflow_prompt)
+
+        # Switch back to requirements tools (in case agent is reused)
+        self.tools = self.REQUIREMENTS_TOOLS
+        self.system_prompt = BUSINESS_REQUIREMENT_SYSTEM_PROMPT
+
+        return self.workflows if self.workflows else []
