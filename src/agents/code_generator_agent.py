@@ -981,10 +981,9 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
                     url = base_url + path
 
                     # Replace path parameters with placeholder values
-                    # e.g., /api/articles/:slug -> /api/articles/test-slug
-                    url = url.replace(':slug', 'test-slug')
-                    url = url.replace(':id', '1')
-                    url = url.replace(':username', 'testuser')
+                    # Handles both {param} (OpenAPI) and :param (Express) formats
+                    import re
+                    url = re.sub(r'\{[^}]+\}|:[a-zA-Z_]+', '1', url)
 
                     try:
                         req = urllib.request.Request(url, method='GET')
