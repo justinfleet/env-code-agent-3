@@ -950,24 +950,46 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
                 workflow_result = self._run_workflow_tests(workflows)
 
                 if not workflow_result['success']:
-                    # Print detailed failure info to console
-                    print(f"\n❌ Workflow Tests Failed: {workflow_result.get('failed', 0)}/{workflow_result.get('total', 0)} failed")
-                    print("\n   Failed workflows:")
+                    # Build detailed, actionable error messages for the agent
+                    failure_details = []
                     for result in workflow_result.get('results', []):
                         if not result['success']:
                             last_step = result.get('steps', [{}])[-1]
-                            print(f"     - {result['name']}: {last_step.get('error', 'Unknown error')}")
+                            error = last_step.get('error', 'Unknown error')
+                            response = last_step.get('response', '')
+
+                            # Build actionable message
+                            detail = {
+                                'workflow': result['name'],
+                                'category': result.get('category', 'unknown'),
+                                'description': result.get('description', ''),
+                                'failed_step': error,
+                                'response': str(response)[:200] if response else ''
+                            }
+                            failure_details.append(detail)
+
+                            # Print to console
+                            print(f"\n   ❌ {result['name']} ({result.get('category', '')})")
+                            print(f"      Error: {error}")
+                            if response:
+                                print(f"      Response: {str(response)[:100]}...")
+
+                    # Build guidance for the agent
+                    guidance = self._build_workflow_fix_guidance(failure_details)
+
+                    print(f"\n   Summary: {workflow_result.get('passed', 0)} passed, {workflow_result.get('failed', 0)} failed")
                     print()
 
                     return {
                         "success": False,
                         "phase": "workflow-validation",
                         "errors": f"{workflow_result.get('failed', 0)} workflow tests failed",
-                        "workflow_results": workflow_result.get('results', []),
+                        "failure_details": failure_details,
+                        "fix_guidance": guidance,
                         "passed_count": workflow_result.get('passed', 0),
                         "failed_count": workflow_result.get('failed', 0),
                         "stdout": "",
-                        "message": f"❌ Workflow validation failed: {workflow_result.get('failed', 0)} tests failed"
+                        "message": f"❌ Workflow validation failed. {guidance}"
                     }
 
                 print(f"✅ Workflow validation passed ({workflow_result.get('passed', 0)} tests)")
@@ -1136,6 +1158,106 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
         result = runner.run_workflows(workflows)
 
         return result
+
+    def _build_workflow_fix_guidance(self, failure_details: list) -> str:
+        """
+        Analyze workflow failures and build actionable guidance for the agent.
+
+        The workflows represent expected behavior based on business requirements.
+        If a workflow fails, the generated code needs to be fixed to match the requirements.
+        """
+        if not failure_details:
+            return "No failures to analyze."
+
+        issues = {
+            'seed_data': [],
+            'auth_mismatch': [],
+            'authorization': [],
+            'business_logic': [],
+            'other': []
+        }
+
+        for detail in failure_details:
+            error = detail.get('failed_step', '')
+            response = detail.get('response', '')
+            workflow = detail.get('workflow', '')
+            description = detail.get('description', '')
+
+            # Analyze error patterns
+            if 'Invalid credentials' in error or 'Invalid credentials' in response:
+                issues['seed_data'].append(
+                    f"{workflow}: Password hashes in seed data are invalid. "
+                    f"Use the bcrypt hash '$2b$10$QKu3ViFOt0WKM3kOmZrt2eDn2y7c/KLt6073vLknBCH1ajvEIffci' for password 'password'."
+                )
+            elif 'got pending' in error and 'available' in error:
+                issues['seed_data'].append(
+                    f"{workflow}: Seed data has wrong pet status. Ensure pet with id=1 has status='available'."
+                )
+            elif 'got 401' in error:
+                issues['auth_mismatch'].append(
+                    f"{workflow}: Got 401 Unauthorized. Check business_requirements to see if this endpoint "
+                    f"should allow unauthenticated access. If so, remove authenticateToken middleware for this route."
+                )
+            elif 'Expected status 403, got 200' in error:
+                issues['authorization'].append(
+                    f"{workflow}: Operation succeeded but should have been forbidden. "
+                    f"Add proper role/permission check. Description: {description}"
+                )
+            elif 'Expected status 403' in error and 'got' in error:
+                issues['authorization'].append(
+                    f"{workflow}: Authorization check returned wrong status. {error}"
+                )
+            elif 'Pet is not available' in response or 'not available for purchase' in response:
+                issues['seed_data'].append(
+                    f"{workflow}: Pet status prevents order. Check seed data - pet should be 'available' for purchase workflows."
+                )
+            elif 'Expected message=' in error or 'got None' in error:
+                issues['business_logic'].append(
+                    f"{workflow}: Error response format mismatch. Ensure error responses use 'error' field "
+                    f"with the expected message text."
+                )
+            elif 'Expected status' in error:
+                issues['business_logic'].append(f"{workflow}: {error}")
+            else:
+                issues['other'].append(f"{workflow}: {error}")
+
+        # Build guidance message
+        guidance_parts = []
+
+        if issues['seed_data']:
+            guidance_parts.append(
+                "SEED DATA: Fix data/schema.sql INSERT statements:\n" +
+                "\n".join(f"  • {issue}" for issue in issues['seed_data'])
+            )
+
+        if issues['auth_mismatch']:
+            guidance_parts.append(
+                "AUTHENTICATION: Check endpoint auth requirements against business_requirements:\n" +
+                "\n".join(f"  • {issue}" for issue in issues['auth_mismatch'])
+            )
+
+        if issues['authorization']:
+            guidance_parts.append(
+                "AUTHORIZATION: Add or fix role-based access checks:\n" +
+                "\n".join(f"  • {issue}" for issue in issues['authorization'])
+            )
+
+        if issues['business_logic']:
+            guidance_parts.append(
+                "BUSINESS LOGIC: Fix validation or response handling:\n" +
+                "\n".join(f"  • {issue}" for issue in issues['business_logic'])
+            )
+
+        if issues['other']:
+            guidance_parts.append(
+                "OTHER:\n" +
+                "\n".join(f"  • {issue}" for issue in issues['other'])
+            )
+
+        if guidance_parts:
+            return "\n\n".join(guidance_parts)
+        else:
+            return "Workflow tests failed. Review failure_details and fix the generated code to match business requirements."
 
     def generate_code(self, specification: Dict[str, Any]) -> Dict[str, Any]:
         """
