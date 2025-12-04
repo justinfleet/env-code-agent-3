@@ -1,0 +1,19 @@
+{
+  "name": "petstore-env",
+  "version": "1.0.0",
+  "description": "Swagger Petstore Fleet Environment",
+  "private": true,
+  "packageManager": "pnpm@9.15.1",
+  "engines": {
+    "node": ">=20.9.0",
+    "pnpm": "^9.15.1"
+  },
+  "scripts": {
+    "dev": "cd server && pnpm dev",
+    "build": "pnpm --filter server build",
+    "start": "pnpm --filter server start"
+  },
+  "devDependencies": {
+    "mprocs": "^0.6.4"
+  }
+}

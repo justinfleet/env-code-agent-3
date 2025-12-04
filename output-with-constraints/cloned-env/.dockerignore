@@ -1,0 +1,31 @@
+# Development files
+node_modules
+.git
+.gitignore
+README.md
+
+# Logs and cache
+*.log
+.cache
+coverage
+
+# Environment files
+.env
+.env.local
+
+# Editor directories
+.vscode
+.idea
+
+# Runtime SQLite files
+data/current.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+
+# Meilisearch data
+data/meilisearch
+
+# Python cache
+__pycache__
+*.pyc
+.pytest_cache

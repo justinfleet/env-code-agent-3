@@ -1,0 +1,12 @@
+procs:
+  server:
+    cmd: ["pnpm", "--filter", "server", "dev"]
+    env:
+      NODE_ENV: development
+      PORT: "3002"
+      JWT_SECRET: "dev-secret-key-change-in-production"
+  mcp:
+    cmd: ["uv", "run", "python", "-m", "petstore_mcp.server"]
+    env:
+      APP_ENV: local
+      API_BASE_URL: "http://localhost:3002"

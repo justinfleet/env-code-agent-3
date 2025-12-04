@@ -26,12 +26,13 @@ def main():
     )
     parser.add_argument(
         "command",
-        choices=["clone", "explore", "from-spec", "from-spec-with-constraints"],
-        help="Command to run: 'clone' = explore live API and clone, 'explore' = only explore API, 'from-spec' = clone from formal specification, 'from-spec-with-constraints' = clone with business constraints"
+        choices=["clone", "explore", "from-spec", "from-spec-with-constraints", "validate"],
+        help="Command to run: 'clone' = explore live API and clone, 'explore' = only explore API, 'from-spec' = clone from formal specification, 'from-spec-with-constraints' = clone with business constraints, 'validate' = validate and fix existing environment"
     )
     parser.add_argument(
         "target",
-        help="Target API URL (for clone/explore) or spec file/URL (for from-spec)"
+        nargs="?",
+        help="Target API URL (for clone/explore), spec file/URL (for from-spec), or directory path (for validate)"
     )
     parser.add_argument(
         "--output",
@@ -69,6 +70,11 @@ def main():
 
     args = parser.parse_args()
 
+    # Validate target argument for commands that require it
+    if args.command != "validate" and not args.target:
+        print(f"❌ Error: 'target' argument is required for '{args.command}' command")
+        sys.exit(1)
+
     # Get API key
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -80,9 +86,67 @@ def main():
     llm = LLMClient(api_key=api_key, max_tokens=8192)
 
     # ========================================
-    # BRANCH: from-spec-with-constraints vs from-spec vs clone/explore
+    # BRANCH: validate vs from-spec-with-constraints vs from-spec vs clone/explore
     # ========================================
-    if args.command == "from-spec-with-constraints":
+    if args.command == "validate":
+        # ========================================
+        # VALIDATE EXISTING ENVIRONMENT
+        # ========================================
+        print(f"\n{'='*70}")
+        print(f"🔍 VALIDATING EXISTING ENVIRONMENT")
+        print(f"{'='*70}\n")
+
+        # Determine the directory to validate
+        if args.target:
+            env_dir = args.target
+        else:
+            env_dir = os.path.join(args.output, "cloned-env")
+
+        if not os.path.exists(env_dir):
+            print(f"❌ Directory not found: {env_dir}")
+            sys.exit(1)
+
+        print(f"📁 Environment directory: {env_dir}")
+        print(f"🔌 Testing on port: {args.port}\n")
+
+        # Create a CodeGeneratorAgent just for validation/fixing
+        code_agent = CodeGeneratorAgent(llm, env_dir, port=args.port)
+
+        # Try to load existing specification if available
+        spec_file = os.path.join(env_dir, ".spec.json")
+        if os.path.exists(spec_file):
+            import json
+            with open(spec_file, 'r') as f:
+                code_agent.specification = json.load(f)
+            print(f"📋 Loaded specification from .spec.json\n")
+
+        # Run validation and let the agent fix issues
+        validate_prompt = f"""You are validating an existing Fleet environment at: {env_dir}
+
+The environment already has generated code. Your task is to:
+1. Run validate_environment to test if everything works
+2. If validation fails, use read_file to inspect the problematic files
+3. Use write_file to fix any issues you find
+4. Re-run validate_environment until it passes
+5. Call complete_generation when validation succeeds
+
+Start by running validate_environment to see the current state."""
+
+        result = code_agent.run(validate_prompt)
+
+        if result.get('success'):
+            print(f"\n{'='*70}")
+            print(f"✅ VALIDATION COMPLETE!")
+            print(f"{'='*70}\n")
+            print(f"📂 Environment at: {env_dir}")
+            print(f"✅ All checks passed!")
+        else:
+            print(f"\n❌ Validation failed after maximum iterations")
+            sys.exit(1)
+
+        return
+
+    elif args.command == "from-spec-with-constraints":
         # ========================================
         # PHASE 1: SPECIFICATION INGESTION
         # ========================================

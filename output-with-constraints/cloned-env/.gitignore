@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Runtime SQLite files
+data/*.sqlite
+data/*.db
+*.sqlite-shm
+*.sqlite-wal
+
+# Logs
+mprocs.log
+*.log
+
+# Build artifacts
+dist/
+build/
+.cache
+
+# Environment files
+.env
+.env.local
+server/.env
+
+# Editor directories
+.vscode/
+.idea/
+.cursor/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Meilisearch
+meilisearch
+meilisearch.db/
+data/meilisearch/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.venv/
+venv/
+.pytest_cache/
