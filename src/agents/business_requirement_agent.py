@@ -683,8 +683,11 @@ class BusinessRequirementAgent(BaseAgent):
 
 ## Your Task:
 
-**Step 1: Analyze each constraint individually**
-Use the analyze_constraint tool for each business rule to understand:
+**Step 1: Analyze constraints (batch multiple calls together!)**
+Use analyze_constraint to categorize each business rule. You can call this tool MULTIPLE TIMES IN ONE RESPONSE.
+For example, if there are 10 constraints, call analyze_constraint 10 times in a single message - don't wait for responses between each one.
+
+For each constraint, determine:
 - What category it belongs to (ordering, pet_management, user_management, etc.)
 - What schema changes it requires (new fields, tables)
 - What application logic it requires (auth, validation, state transitions)
