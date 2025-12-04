@@ -856,16 +856,27 @@ Be thorough and specific - this specification will be used to generate actual wo
         self.tools = self.WORKFLOW_TOOLS
         self.system_prompt = WORKFLOW_GENERATION_SYSTEM_PROMPT
 
-        # Format requirements for the prompt
-        requirements_json = json.dumps(self.requirements, indent=2)
-        spec_summary = self._summarize_spec(specification)
+        # Create enriched spec first, then summarize it (so schema includes business requirement fields)
+        enriched_spec = self._apply_requirements(specification, self.requirements)
+        spec_summary = self._summarize_spec(enriched_spec)
 
-        workflow_prompt = f"""Based on the following business requirements, generate comprehensive validation workflows.
+        # Only include the application-layer requirements (not schema_changes since they're already merged)
+        app_requirements = {
+            "auth_config": self.requirements.get("auth_config", {}),
+            "roles": self.requirements.get("roles", {}),
+            "endpoint_auth": self.requirements.get("endpoint_auth", []),
+            "state_transitions": self.requirements.get("state_transitions", []),
+            "validation_rules": self.requirements.get("validation_rules", []),
+            "pre_conditions": self.requirements.get("pre_conditions", [])
+        }
+        requirements_json = json.dumps(app_requirements, indent=2)
 
-## API Specification Summary:
+        workflow_prompt = f"""Based on the following API specification and business requirements, generate comprehensive validation workflows.
+
+## API Specification (with business requirement fields already included):
 {spec_summary}
 
-## Business Requirements:
+## Business Rules to Enforce:
 {requirements_json}
 
 ## Your Task:

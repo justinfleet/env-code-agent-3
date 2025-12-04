@@ -3,11 +3,12 @@ FROM node:20-alpine
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@9.15.1 --activate
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json pnpm-workspace.yaml ./
+# Copy workspace files
+COPY pnpm-workspace.yaml package.json ./
+
+# Copy server package
 COPY server/package.json ./server/
 
 # Install dependencies

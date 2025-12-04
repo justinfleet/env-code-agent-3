@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import petRoutes from './routes/pet';
-import storeRoutes from './routes/store';
-import userRoutes from './routes/user';
+import petsRouter from './routes/pets.js';
+import storeRouter from './routes/store.js';
+import usersRouter from './routes/users.js';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -10,44 +10,30 @@ const PORT = process.env.PORT || 3002;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Enable query string parsing
-app.set('query parser', 'extended');
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Debug endpoint to test query params
-app.get('/debug/query', (req, res) => {
-  res.json({ 
-    query: req.query,
-    url: req.url,
-    originalUrl: req.originalUrl
-  });
-});
+// API routes - mount with proper base paths
+app.use('/api/v3/pet', petsRouter);
+app.use('/api/v3/store', storeRouter);
+app.use('/api/v3/user', usersRouter);
 
-// API routes
-app.use('/api/v3/pet', petRoutes);
-app.use('/api/v3/store', storeRoutes);
-app.use('/api/v3/user', userRoutes);
+// Error handling middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
+});
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
-});
-
-// Error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(404).json({ error: 'Route not found' });
 });
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
 });
 
 export default app;

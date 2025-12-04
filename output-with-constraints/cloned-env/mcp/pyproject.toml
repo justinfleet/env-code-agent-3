@@ -4,20 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "petstore-mcp"
-version = "0.1.0"
-description = "MCP server for Petstore API"
-authors = [
-    {name = "Fleet Environment"}
-]
+version = "1.0.0"
+description = "MCP server for Swagger Petstore API"
 dependencies = [
     "mcp>=1.0.0",
-    "httpx>=0.25.0",
+    "httpx>=0.24.0",
     "pydantic>=2.0.0"
 ]
-requires-python = ">=3.11"
 
 [tool.uv]
-dev-dependencies = [
-    "pytest>=7.0.0",
-    "pytest-asyncio>=0.21.0"
-]
+dev-dependencies = []
+
+[project.scripts]
+petstore-mcp = "petstore_mcp.server:main"

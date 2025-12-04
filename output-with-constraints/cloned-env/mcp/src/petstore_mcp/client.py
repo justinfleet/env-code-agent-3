@@ -1,107 +1,134 @@
 """HTTP client for Petstore API."""
 
-import os
-from typing import Dict, Any, Optional
 import httpx
+import json
+from typing import Optional, Dict, Any, List
+
 
 class PetstoreClient:
     """Client for interacting with the Petstore API."""
     
-    def __init__(self, base_url: Optional[str] = None):
-        """Initialize the client."""
-        if base_url:
-            self.base_url = base_url
-        else:
-            app_env = os.getenv("APP_ENV", "local")
-            if app_env == "local":
-                self.base_url = os.getenv("API_BASE_URL", "http://localhost:3002")
+    def __init__(self, base_url: str):
+        self.base_url = base_url.rstrip('/')
+        self.client = httpx.AsyncClient()
+    
+    async def get_pet_by_id(self, pet_id: int) -> Dict[str, Any]:
+        """Get a pet by ID."""
+        try:
+            response = await self.client.get(f"{self.base_url}/api/v3/pet/{pet_id}")
+            if response.status_code == 200:
+                return response.json()
             else:
-                self.base_url = os.getenv("API_BASE_URL", "https://api.example.com")
-                
-        self.client = httpx.AsyncClient(timeout=30.0)
-        
+                return {"error": f"HTTP {response.status_code}: {response.text}"}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    async def find_pets_by_status(self, status: str, auth_token: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Find pets by status."""
+        try:
+            headers = {}
+            if auth_token:
+                headers["Authorization"] = f"Bearer {auth_token}"
+            
+            response = await self.client.get(
+                f"{self.base_url}/api/v3/pet/findByStatus",
+                params={"status": status},
+                headers=headers
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return [{"error": f"HTTP {response.status_code}: {response.text}"}]
+        except Exception as e:
+            return [{"error": str(e)}]
+    
+    async def find_pets_by_tags(self, tags: str, auth_token: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Find pets by tags."""
+        try:
+            headers = {}
+            if auth_token:
+                headers["Authorization"] = f"Bearer {auth_token}"
+            
+            response = await self.client.get(
+                f"{self.base_url}/api/v3/pet/findByTags",
+                params={"tags": tags},
+                headers=headers
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return [{"error": f"HTTP {response.status_code}: {response.text}"}]
+        except Exception as e:
+            return [{"error": str(e)}]
+    
+    async def get_store_inventory(self, auth_token: Optional[str] = None) -> Dict[str, Any]:
+        """Get store inventory."""
+        try:
+            headers = {}
+            if auth_token:
+                headers["Authorization"] = f"Bearer {auth_token}"
+            
+            response = await self.client.get(
+                f"{self.base_url}/api/v3/store/inventory",
+                headers=headers
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"error": f"HTTP {response.status_code}: {response.text}"}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    async def get_order_by_id(self, order_id: int, auth_token: Optional[str] = None) -> Dict[str, Any]:
+        """Get an order by ID."""
+        try:
+            headers = {}
+            if auth_token:
+                headers["Authorization"] = f"Bearer {auth_token}"
+            
+            response = await self.client.get(
+                f"{self.base_url}/api/v3/store/order/{order_id}",
+                headers=headers
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"error": f"HTTP {response.status_code}: {response.text}"}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    async def get_user_by_username(self, username: str, auth_token: Optional[str] = None) -> Dict[str, Any]:
+        """Get a user by username."""
+        try:
+            headers = {}
+            if auth_token:
+                headers["Authorization"] = f"Bearer {auth_token}"
+            
+            response = await self.client.get(
+                f"{self.base_url}/api/v3/user/{username}",
+                headers=headers
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"error": f"HTTP {response.status_code}: {response.text}"}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    async def login_user(self, username: str, password: str) -> Dict[str, Any]:
+        """Login a user and get authentication token."""
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/api/v3/user/login",
+                params={"username": username, "password": password}
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"error": f"HTTP {response.status_code}: {response.text}"}
+        except Exception as e:
+            return {"error": str(e)}
+    
     async def close(self):
         """Close the HTTP client."""
         await self.client.aclose()
-        
-    async def get_pet(self, pet_id: int) -> Dict[str, Any]:
-        """Get pet by ID."""
-        response = await self.client.get(f"{self.base_url}/api/v3/pet/{pet_id}")
-        response.raise_for_status()
-        return response.json()
-        
-    async def find_pets_by_status(self, status: str, auth_token: str) -> Dict[str, Any]:
-        """Find pets by status."""
-        headers = {"Authorization": f"Bearer {auth_token}"}
-        response = await self.client.get(
-            f"{self.base_url}/api/v3/pet/findByStatus?status={status}",
-            headers=headers
-        )
-        response.raise_for_status()
-        return response.json()
-        
-    async def find_pets_by_tags(self, tags: str, auth_token: str) -> Dict[str, Any]:
-        """Find pets by tags."""
-        headers = {"Authorization": f"Bearer {auth_token}"}
-        response = await self.client.get(
-            f"{self.base_url}/api/v3/pet/findByTags?tags={tags}",
-            headers=headers
-        )
-        response.raise_for_status()
-        return response.json()
-        
-    async def get_inventory(self) -> Dict[str, Any]:
-        """Get store inventory."""
-        response = await self.client.get(f"{self.base_url}/api/v3/store/inventory")
-        response.raise_for_status()
-        return response.json()
-        
-    async def place_order(self, pet_id: int, auth_token: str, quantity: int = 1) -> Dict[str, Any]:
-        """Place an order."""
-        headers = {"Authorization": f"Bearer {auth_token}"}
-        order_data = {"petId": pet_id, "quantity": quantity}
-        
-        response = await self.client.post(
-            f"{self.base_url}/api/v3/store/order",
-            headers=headers,
-            json=order_data
-        )
-        response.raise_for_status()
-        return response.json()
-        
-    async def get_order(self, order_id: int, auth_token: str) -> Dict[str, Any]:
-        """Get order by ID."""
-        headers = {"Authorization": f"Bearer {auth_token}"}
-        response = await self.client.get(
-            f"{self.base_url}/api/v3/store/order/{order_id}",
-            headers=headers
-        )
-        response.raise_for_status()
-        return response.json()
-        
-    async def login(self, username: str, password: str) -> Dict[str, Any]:
-        """Login user."""
-        response = await self.client.get(
-            f"{self.base_url}/api/v3/user/login?username={username}&password={password}"
-        )
-        response.raise_for_status()
-        return response.json()
-        
-    async def get_user(self, username: str, auth_token: str) -> Dict[str, Any]:
-        """Get user by username."""
-        headers = {"Authorization": f"Bearer {auth_token}"}
-        response = await self.client.get(
-            f"{self.base_url}/api/v3/user/{username}",
-            headers=headers
-        )
-        response.raise_for_status()
-        return response.json()
-        
-    async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new user."""
-        response = await self.client.post(
-            f"{self.base_url}/api/v3/user",
-            json=user_data
-        )
-        response.raise_for_status()
-        return response.json()

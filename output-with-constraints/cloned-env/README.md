@@ -1,193 +1,245 @@
 # Petstore Fleet Environment
 
-A complete Fleet environment implementation of the Swagger Petstore API with JWT authentication, role-based access control, and full business rule enforcement.
+A complete Fleet environment for the Swagger Petstore API with comprehensive role-based authentication, business logic, and state management.
 
-## Features
+## 🚀 Quick Start
 
-- **Full API Implementation**: All Swagger Petstore endpoints with proper authentication
-- **Role-Based Access Control**: guest, customer, store_owner, admin roles with appropriate permissions  
-- **Business Rule Enforcement**: State transitions, ownership checks, and validation rules
-- **JWT Authentication**: Secure token-based authentication with bcrypt password hashing
-- **Database**: SQLite with WAL mode, foreign key constraints, and automatic state management
-- **MCP Server**: Model Context Protocol server for LLM integration
-- **Production Ready**: Docker support, CI/CD workflows, proper error handling
+### Prerequisites
+- Node.js 20.9.0 or higher
+- pnpm 9.15.1
+- Python 3.11+ (for MCP server)
+- uv (Python package manager)
 
-## Architecture
+### 1. Install Dependencies
 
-- **Server**: TypeScript + Express API server on port 3002
-- **Database**: SQLite with automatic seed data and business rules
-- **MCP**: Python-based Model Context Protocol server
-- **Monorepo**: pnpm workspace with proper dependency management
-
-## Quick Start
-
-1. **Prerequisites**:
-   - Node.js 20+ 
-   - pnpm 9.15.1
-   - Python 3.11+ with uv
-
-2. **Clone and Install**:
-   ```bash
-   pnpm install
-   ```
-
-3. **Start Development**:
-   ```bash
-   # Start all services
-   pnpm dev
-   # OR use mprocs for multi-process management
-   mprocs
-   ```
-
-4. **Verify Setup**:
-   ```bash
-   # Health check
-   curl http://localhost:3002/health
-   
-   # Login to get token
-   curl "http://localhost:3002/api/v3/user/login?username=customer&password=customer123"
-   
-   # Find available pets (requires token)
-   curl -H "Authorization: Bearer <token>" \
-     "http://localhost:3002/api/v3/pet/findByStatus?status=available"
-   ```
-
-## API Usage
-
-### Sample Users
-The system includes pre-configured users:
-
-- **admin** (password: admin123) - Full system access
-- **store_owner** (password: store123) - Manage pets and orders
-- **customer** (password: customer123) - Place orders and manage profile
-
-### Authentication Flow
 ```bash
-# 1. Login
-TOKEN=$(curl -s "http://localhost:3002/api/v3/user/login?username=customer&password=customer123" | jq -r '.data.token')
+# Install Node.js dependencies
+pnpm install
 
-# 2. Use token in requests
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:3002/api/v3/pet/findByStatus?status=available"
-
-# 3. Place an order
-curl -X POST -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"petId": 1, "quantity": 1}' \
-  "http://localhost:3002/api/v3/store/order"
+# Install Python dependencies for MCP
+cd mcp
+uv install
+cd ..
 ```
 
-## Business Rules
+### 2. Set Environment Variables
 
-The API enforces comprehensive business logic:
+```bash
+# Required for JWT authentication
+export JWT_SECRET="your-jwt-secret-key-here"
 
-### Role-Based Access
-- **Guests**: Can browse pets and inventory (no auth required)
-- **Customers**: Can place orders, view/edit own profile, cancel own orders
-- **Store Owners**: Can manage all pets, approve/deliver orders, view all profiles
-- **Admins**: Full system access, can delete users, change roles, relist sold pets
+# Optional: Custom database path
+# export DATABASE_PATH="/path/to/your/database.sqlite"
+```
 
-### State Transitions
-- Placing order: Pet status changes available → pending
-- Canceling placed order: Pet status changes pending → available  
-- Delivering order: Pet status changes pending → sold
-- Only admins can change sold pets back to available
+### 3. Start the Environment
 
-### Validation Rules
-- Orders require quantity of 1 (live animals)
-- Pets must be available to place orders
-- Cannot delete pets/users with active orders
-- Username uniqueness enforced
-- Only admins can change user roles
+#### Option A: Start everything with mprocs
+```bash
+pnpm dev
+```
 
-## MCP Server
+#### Option B: Start services individually
+```bash
+# Terminal 1: Start the API server
+cd server
+pnpm dev
 
-The Model Context Protocol server enables LLM integration:
+# Terminal 2: Start the MCP server  
+cd mcp
+uv run python -m petstore_mcp.server
+```
+
+The API server will be available at: **http://localhost:3002**
+
+## 📊 API Features
+
+### Core Business Logic
+- **Role-based authentication** with JWT tokens
+- **Complex state transitions** (available → pending → sold)
+- **Ownership-based authorization** for orders and profiles
+- **Pre-condition validation** preventing invalid operations
+- **Business rule enforcement** (quantity limits, pet availability)
+
+### User Roles
+- **Guest**: Browse pets, view inventory, register
+- **Customer**: Place orders, view own orders, manage profile
+- **Store Owner**: Manage pets, process all orders, upload images
+- **Admin**: Full access, manage users, relist sold pets
+
+### Key Endpoints
+- `GET /api/v3/pet/{id}` - View pet details
+- `GET /api/v3/pet/findByStatus` - Filter pets by status
+- `POST /api/v3/store/order` - Place pet orders (with state transitions)
+- `GET /api/v3/user/login` - Authenticate and get JWT token
+- `GET /api/v3/store/inventory` - View inventory counts
+
+## 🗄️ Database
+
+Uses SQLite with:
+- **WAL mode** enabled for better concurrency
+- **Foreign key constraints** enforced
+- **Automatic seed data** with sample pets, users, and orders
+- **Path precedence**: DATABASE_PATH → ENV_DB_DIR → ./data/current.sqlite
+
+### Sample Users
+- **admin** / password (Admin role)
+- **store_owner** / password (Store Owner role) 
+- **customer1** / password (Customer role)
+- **customer2** / password (Customer role)
+
+*All passwords use bcrypt hashing*
+
+## 🤖 MCP Server
+
+The included MCP server provides LLM-friendly tools:
 
 ```bash
 cd mcp
-APP_ENV=local uv run python -m petstore_mcp.server
+uv run python -m petstore_mcp.server
 ```
 
-Available MCP tools:
-- `login` - Authenticate and get JWT token
-- `get_pet_by_id` - Get specific pet details
-- `find_pets_by_status` - Find pets by status
-- `find_pets_by_tags` - Find pets by tags  
-- `get_store_inventory` - Get inventory counts
-- `place_order` - Place order for pet
-- `get_order_by_id` - Get order details
-- `get_user` - Get user profile
+**Available Tools:**
+- `get_all_pets` - Browse available pets
+- `get_pet_by_id` - Get pet details
+- `search_pets_by_tags` - Find pets by tags
+- `get_store_inventory` - View stock levels
+- `login_user` - Authenticate users
+- `get_order_by_id` - View order details
 
-## Development
+## 🏗️ Project Structure
 
-### Project Structure
 ```
-petstore-env/
-├── server/              # TypeScript API server
+petstore-fleet/
+├── server/                 # Node.js API server
 │   ├── src/
-│   │   ├── lib/         # Database and auth utilities
-│   │   ├── routes/      # API route handlers
-│   │   └── index.ts     # Main server entry
-├── mcp/                 # Python MCP server
-│   └── src/petstore_mcp/
-├── data/               # Database files
-│   ├── schema.sql      # Database schema
-│   └── seed.db         # Pre-populated database
-└── docs/               # Documentation
+│   │   ├── lib/
+│   │   │   ├── db.ts      # SQLite connection with path precedence
+│   │   │   └── auth.ts    # JWT auth & role-based access control
+│   │   ├── routes/        # API route handlers
+│   │   │   ├── pets.ts    # Pet management endpoints
+│   │   │   ├── store.ts   # Order/inventory endpoints  
+│   │   │   └── users.ts   # User management endpoints
+│   │   └── index.ts       # Express server setup
+│   ├── package.json
+│   └── tsconfig.json
+├── mcp/                   # Python MCP server
+│   ├── src/petstore_mcp/
+│   │   ├── server.py      # MCP server implementation
+│   │   ├── client.py      # API client
+│   │   └── __init__.py
+│   ├── pyproject.toml
+│   └── README.md
+├── data/
+│   ├── schema.sql         # Database schema with sample data
+│   └── seed.db           # Pre-built database (auto-generated)
+├── mprocs.yaml           # Multi-process development config
+├── package.json          # Root workspace config
+├── pnpm-workspace.yaml   # pnpm workspace definition
+└── README.md
 ```
 
-### Environment Variables
-- `PORT` - Server port (default: 3002)
-- `JWT_SECRET` - JWT signing secret (required for production)
-- `DATABASE_PATH` - Custom database path (optional)
-- `ENV_DB_DIR` - Custom database directory (optional)
+## 🔐 Authentication Examples
 
-### Database
-- **Development**: Uses `data/current.sqlite` (auto-copied from seed.db)
-- **WAL Mode**: Enabled for concurrent access
-- **Foreign Keys**: Enforced for data integrity
-- **Auto-migration**: Copies seed.db if current.sqlite doesn't exist
-
-### Testing Endpoints
-The system includes comprehensive endpoint validation. All business rules are enforced:
-
+### Login and Get Token
 ```bash
-# Test role restrictions (should fail without proper role)
-curl -X POST -H "Authorization: Bearer <customer-token>" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "New Pet", "status": "available"}' \
-  "http://localhost:3002/api/v3/pet"
-
-# Test business rules (should fail - sold pet relist)
-curl -X PUT -H "Authorization: Bearer <store-owner-token>" \
-  -H "Content-Type: application/json" \
-  -d '{"id": 4, "name": "Nemo", "status": "available"}' \
-  "http://localhost:3002/api/v3/pet"
+curl "http://localhost:3002/api/v3/user/login?username=customer1&password=password"
 ```
 
-## Production Deployment
+### Use Token for Authenticated Requests
+```bash
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  "http://localhost:3002/api/v3/store/inventory"
+```
 
-### Docker
+### Place an Order (Customer)
+```bash
+curl -X POST "http://localhost:3002/api/v3/store/order" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"petId": 1, "quantity": 1}'
+```
+
+## 📋 Business Rules Enforced
+
+### Order Management
+- ✅ Pet must be 'available' to place order
+- ✅ Quantity must be exactly 1 (live animals)
+- ✅ No duplicate active orders per pet
+- ✅ Only 'placed' orders can be cancelled
+- ✅ Delivered orders cannot be modified
+
+### State Transitions  
+- ✅ Order creation: pet available → pending
+- ✅ Order delivery: pet pending → sold
+- ✅ Order cancellation: pet pending → available
+
+### Authorization Rules
+- ✅ Customers see only their own orders/profile
+- ✅ Store owners can manage pets and all orders
+- ✅ Only admins can relist sold pets
+- ✅ Only admins can delete users/change roles
+
+### Validation & Pre-conditions
+- ✅ Cannot delete pets with active orders
+- ✅ Cannot delete users with active orders  
+- ✅ Username uniqueness enforced
+- ✅ Role changes restricted to admins
+
+## 🚀 Production Deployment
+
+### Docker Build
 ```bash
 docker build -t petstore-api .
 docker run -p 3002:3002 -e JWT_SECRET="your-secret" petstore-api
 ```
 
-### Environment Setup
-```bash
-# Required for production
-export JWT_SECRET="your-secure-secret-key"
-export NODE_ENV="production"
+### Environment Variables
+- `PORT` - Server port (default: 3002)
+- `JWT_SECRET` - Required for authentication
+- `DATABASE_PATH` - Custom database location
+- `ENV_DB_DIR` - Directory containing current.sqlite
+- `NODE_ENV` - Environment mode
 
-# Optional database configuration  
-export DATABASE_PATH="/app/data/production.sqlite"
+## 📖 API Documentation
+
+See [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) for complete endpoint documentation, including:
+- Detailed request/response schemas
+- Authentication requirements per endpoint
+- Business rule explanations
+- Error response formats
+- State transition diagrams
+
+## 🧪 Testing the API
+
+The environment includes comprehensive validation that tests:
+- ✅ All endpoints match specification
+- ✅ Authentication/authorization logic
+- ✅ Business rule enforcement
+- ✅ State transition correctness
+- ✅ Error handling scenarios
+
+Run validation manually:
+```bash
+# This runs install, build, dev server start, and API tests
+pnpm install && pnpm build && pnpm dev
 ```
 
-## API Documentation
+## 🔧 Development
 
-See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for complete endpoint documentation with request/response examples and business rules.
+### Database Management
+- Database auto-copies from `seed.db` to `current.sqlite` on first run
+- Modify `data/schema.sql` and regenerate with new sample data
+- Foreign keys and WAL mode enabled automatically
 
-## License
+### Adding New Endpoints
+1. Add route handler in appropriate `server/src/routes/` file
+2. Implement authentication/authorization logic
+3. Add business rule validation
+4. Update API documentation
 
-MIT License - see LICENSE file for details.
+### Code Style
+- TypeScript with strict mode enabled
+- Consistent error handling with try/catch
+- JWT-based authentication throughout
+- RESTful API design principles

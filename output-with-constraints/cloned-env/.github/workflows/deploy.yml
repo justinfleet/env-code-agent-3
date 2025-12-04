@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Deploy
 
 on:
   push:
@@ -9,36 +9,33 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
-      - name: Enable Corepack
+
+      - name: Enable corepack
         run: corepack enable
-        
+
+      - name: Setup pnpm
+        run: corepack prepare pnpm@9.15.1 --activate
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        
+
       - name: Build application
         run: pnpm build
-        
+
       - name: Build Docker image
-        run: |
-          docker build -t petstore-api .
-          
-      # Add deployment steps here based on your deployment target
-      # Example for ECR:
-      # - name: Deploy to ECR
-      #   env:
-      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: docker build -t petstore-api .
+
+      # Add deployment steps here as needed
+      # - name: Deploy to production
+      #   if: github.ref == 'refs/heads/main'
       #   run: |
-      #     aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin YOUR_ECR_URI
-      #     docker tag petstore-api:latest YOUR_ECR_URI/petstore-api:latest
-      #     docker push YOUR_ECR_URI/petstore-api:latest
+      #     # Add your deployment commands here

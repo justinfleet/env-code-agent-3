@@ -1,6 +1,10 @@
 import Database from 'better-sqlite3';
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function resolveDatabasePath() {
   // 1. DATABASE_PATH env var (highest priority)
@@ -17,21 +21,25 @@ function resolveDatabasePath() {
 
 const DATABASE_PATH = resolveDatabasePath();
 
+// Ensure data directory exists
+const dataDir = path.dirname(DATABASE_PATH);
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
 // Auto-copy seed.db to current.sqlite if not exists
 if (!fs.existsSync(DATABASE_PATH)) {
   const seedPath = path.join(path.dirname(DATABASE_PATH), 'seed.db');
   if (fs.existsSync(seedPath)) {
     fs.copyFileSync(seedPath, DATABASE_PATH);
-    console.log(`Copied ${seedPath} to ${DATABASE_PATH}`);
   }
 }
 
+// Initialize database connection
 const db = new Database(DATABASE_PATH);
 
 // Enable WAL mode and foreign keys
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
-
-console.log(`Database connected: ${DATABASE_PATH}`);
 
 export default db;

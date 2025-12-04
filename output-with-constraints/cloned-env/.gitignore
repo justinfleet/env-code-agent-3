@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-**/node_modules/
+**/node_modules
 
 # Runtime SQLite files
 data/*.sqlite
@@ -23,13 +23,12 @@ build/
 server/.env
 
 # Editor directories
-.vscode/
-.idea/
+.vscode
+.idea
 .cursor/
 
 # OS files
 .DS_Store
-Thumbs.db
 
 # Meilisearch
 meilisearch
@@ -38,15 +37,3 @@ data/meilisearch/
 
 # Coverage
 coverage/
-.nyc_output/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.so
-.venv/
-venv/
-.pytest_cache/

@@ -1,176 +1,255 @@
 # Swagger Petstore API Documentation
 
-## Overview
-This is the Swagger Petstore API implementation with full JWT authentication, role-based access control, and business rule enforcement.
+## API Overview
 
-**Base URL**: `http://localhost:3002/api/v3`
+This is a comprehensive Petstore API with role-based authentication and complex business logic for managing pets, orders, and users.
+
+**Base URL:** `http://localhost:3002/api/v3`
 
 ## Authentication
-Most endpoints require JWT authentication. Get a token by logging in first.
 
-### Login
-```http
-GET /api/v3/user/login?username=customer&password=customer123
-```
+The API uses JWT-based authentication. Most endpoints require authentication.
 
-Use the returned token in the `Authorization: Bearer <token>` header for authenticated requests.
+**Login:** `GET /api/v3/user/login?username={username}&password={password}`
 
-## User Roles
-- **guest**: Unauthenticated users (can browse pets and inventory)
-- **customer**: Registered users (can place orders, manage profile)
-- **store_owner**: Store employees (can manage pets and orders)
-- **admin**: System administrators (full access)
+Returns a JWT token that should be included in the `Authorization` header as `Bearer {token}`.
+
+### User Roles
+
+- **guest**: Unauthenticated user (can browse pets, view inventory, register, login)
+- **customer**: Registered customer (can place/view/cancel own orders, manage own profile)
+- **store_owner**: Store employee (can manage pets, view/approve/deliver all orders)
+- **admin**: System administrator (full access, can manage users and relist sold pets)
 
 ## Endpoints
 
 ### Pet Management
 
-#### Get Pet by ID
-- **GET** `/api/v3/pet/{petId}`
-- **Auth**: Not required
-- **Description**: Find pet by ID
-- **Response**: Pet object with category and tags
+#### GET /api/v3/pet/{petId}
+**Description:** Find pet by ID  
+**Authentication:** Not required  
+**Parameters:**
+- `petId` (path): Pet ID to retrieve
 
-#### Find Pets by Status  
-- **GET** `/api/v3/pet/findByStatus?status={status}`
-- **Auth**: Required (Bearer token)
-- **Parameters**: 
-  - `status`: available, pending, sold
-- **Response**: Array of pets matching the status
+**Response:**
+```json
+{
+  "id": 1,
+  "name": "Buddy",
+  "category": {
+    "id": 1,
+    "name": "Dogs"
+  },
+  "photoUrls": ["https://example.com/buddy.jpg"],
+  "tags": [
+    {"id": 1, "name": "friendly"},
+    {"id": 2, "name": "energetic"}
+  ],
+  "status": "available"
+}
+```
 
-#### Find Pets by Tags
-- **GET** `/api/v3/pet/findByTags?tags={tags}`
-- **Auth**: Required (Bearer token)
-- **Parameters**:
-  - `tags`: Comma-separated tag names
-- **Response**: Array of pets with matching tags
+#### GET /api/v3/pet/findByStatus
+**Description:** Finds pets by status  
+**Authentication:** Required  
+**Allowed Roles:** All authenticated users  
+**Parameters:**
+- `status` (query): Pet status (available, pending, sold)
 
-#### Add New Pet
-- **POST** `/api/v3/pet`
-- **Auth**: Required (store_owner, admin roles only)
-- **Body**: Pet object
-- **Response**: Created pet object
+**Response:** Array of pet objects
 
-#### Update Pet
-- **PUT** `/api/v3/pet`
-- **Auth**: Required (store_owner, admin roles only)
-- **Body**: Pet object with ID
-- **Response**: Updated pet object
-- **Business Rule**: Only admin can change sold pets back to available
+#### GET /api/v3/pet/findByTags
+**Description:** Finds pets by tags  
+**Authentication:** Required  
+**Allowed Roles:** All authenticated users  
+**Parameters:**
+- `tags` (query): Comma-separated list of tags
 
-#### Update Pet with Form Data
-- **POST** `/api/v3/pet/{petId}`
-- **Auth**: Required (store_owner, admin roles only)
-- **Body**: Form data (name, status)
-- **Response**: Success message
+**Response:** Array of pet objects
 
-#### Delete Pet
-- **DELETE** `/api/v3/pet/{petId}`
-- **Auth**: Required (store_owner, admin roles only)
-- **Response**: Success message
-- **Business Rule**: Cannot delete pets with active orders
+#### POST /api/v3/pet
+**Description:** Add a new pet to the store  
+**Authentication:** Required  
+**Allowed Roles:** store_owner, admin  
+**Request Body:**
+```json
+{
+  "name": "New Pet",
+  "category": {
+    "id": 1,
+    "name": "Dogs"
+  },
+  "photoUrls": ["https://example.com/photo.jpg"],
+  "tags": [
+    {"id": 1, "name": "friendly"}
+  ],
+  "status": "available"
+}
+```
 
-#### Upload Pet Image
-- **POST** `/api/v3/pet/{petId}/uploadImage`
-- **Auth**: Required (store_owner, admin roles only)
-- **Body**: Multipart form with file
-- **Response**: Upload confirmation
+#### PUT /api/v3/pet
+**Description:** Update an existing pet  
+**Authentication:** Required  
+**Allowed Roles:** store_owner, admin  
+**Special Rules:** Only admin can change status from 'sold' to 'available'  
+**Request Body:** Same as POST /api/v3/pet with `id` field
+
+#### POST /api/v3/pet/{petId}
+**Description:** Updates a pet with form data  
+**Authentication:** Required  
+**Allowed Roles:** store_owner, admin  
+**Parameters:**
+- `petId` (path): Pet ID to update
+
+**Request Body:**
+```json
+{
+  "name": "Updated Name",
+  "status": "available"
+}
+```
+
+#### DELETE /api/v3/pet/{petId}
+**Description:** Deletes a pet  
+**Authentication:** Required  
+**Allowed Roles:** store_owner, admin  
+**Pre-conditions:** Pet must not have active orders  
+**Parameters:**
+- `petId` (path): Pet ID to delete
+
+#### POST /api/v3/pet/{petId}/uploadImage
+**Description:** Uploads an image for a pet  
+**Authentication:** Required  
+**Allowed Roles:** store_owner, admin  
+**Parameters:**
+- `petId` (path): Pet ID
+
+**Request Body:** multipart/form-data with `file` and optional `additionalMetadata`
 
 ### Store Operations
 
-#### Get Store Inventory
-- **GET** `/api/v3/store/inventory`
-- **Auth**: Not required
-- **Response**: Object with status counts (available: 2, pending: 1, sold: 1)
+#### GET /api/v3/store/inventory
+**Description:** Returns pet inventories by status  
+**Authentication:** Required  
+**Response:**
+```json
+{
+  "available": 5,
+  "pending": 2,
+  "sold": 3
+}
+```
 
-#### Place Order
-- **POST** `/api/v3/store/order`
-- **Auth**: Required (customer+ roles)
-- **Body**: Order object
-- **Response**: Created order
-- **Business Rules**:
-  - Pet must be available
-  - Quantity must be 1 for live animals
-  - Pet cannot have existing active orders
-  - Changes pet status to "pending"
+#### POST /api/v3/store/order
+**Description:** Place an order for a pet  
+**Authentication:** Required  
+**Allowed Roles:** customer, store_owner, admin  
+**Business Rules:**
+- Pet must be available
+- Quantity must be 1 (live animals)
+- Pet cannot have existing active orders
 
-#### Get Order by ID
-- **GET** `/api/v3/store/order/{orderId}`
-- **Auth**: Required (ownership check)
-- **Response**: Order object
-- **Business Rule**: Users can only view their own orders (store_owner/admin can view all)
+**Request Body:**
+```json
+{
+  "petId": 1,
+  "quantity": 1,
+  "shipDate": "2024-01-15",
+  "status": "placed",
+  "complete": false
+}
+```
 
-#### Cancel Order
-- **DELETE** `/api/v3/store/order/{orderId}`
-- **Auth**: Required (ownership check)
-- **Response**: Success message
-- **Business Rules**:
-  - Can only cancel orders with "placed" status
-  - Cannot cancel delivered orders
-  - Returns pet to "available" status
-  - Users can only cancel their own orders
+**State Changes:** Pet status changes from 'available' to 'pending'
+
+#### GET /api/v3/store/order/{orderId}
+**Description:** Find purchase order by ID  
+**Authentication:** Required  
+**Authorization:** Customers can only view their own orders; store_owner/admin can view all  
+**Parameters:**
+- `orderId` (path): Order ID
+
+#### PUT /api/v3/store/order/{orderId}
+**Description:** Update an order  
+**Authentication:** Required  
+**Business Rules:**
+- Cannot modify delivered orders
+- Only store_owner/admin can approve or mark as delivered
+- Customers can only modify their own orders
+
+**State Changes:** When status becomes 'delivered', pet status changes to 'sold'
+
+#### DELETE /api/v3/store/order/{orderId}
+**Description:** Delete/cancel an order  
+**Authentication:** Required  
+**Authorization:** Customers can only cancel their own orders  
+**Business Rules:**
+- Only 'placed' orders can be cancelled
+- Cannot cancel delivered orders
+
+**State Changes:** Pet status returns to 'available' when placed order is cancelled
 
 ### User Management
 
-#### User Login
-- **GET** `/api/v3/user/login?username={username}&password={password}`
-- **Auth**: Not required
-- **Response**: JWT token
-- **Sample Users**:
-  - admin/admin123 (admin role)
-  - store_owner/store123 (store_owner role)  
-  - customer/customer123 (customer role)
+#### GET /api/v3/user/login
+**Description:** Logs user into the system  
+**Parameters:**
+- `username` (query): Username
+- `password` (query): Password
 
-#### User Logout
-- **GET** `/api/v3/user/logout`
-- **Auth**: Not required
-- **Response**: Success message
+**Response:**
+```json
+{
+  "token": "jwt-token-here",
+  "expires": "2024-01-15T12:00:00Z"
+}
+```
 
-#### Get User
-- **GET** `/api/v3/user/{username}`
-- **Auth**: Required (ownership check)
-- **Response**: User profile
-- **Business Rule**: Users can only view their own profile (admin can view all)
+#### GET /api/v3/user/logout
+**Description:** Logs out current user session  
 
-#### Create User (Register)
-- **POST** `/api/v3/user`
-- **Auth**: Not required
-- **Body**: User object
-- **Response**: Success message
-- **Note**: New users get "customer" role by default
+#### POST /api/v3/user
+**Description:** Create user (registration)  
+**Request Body:**
+```json
+{
+  "username": "johndoe",
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john@example.com",
+  "password": "password123",
+  "phone": "+1234567890",
+  "userStatus": 0
+}
+```
 
-#### Create Users (Bulk)
-- **POST** `/api/v3/user/createWithList`
-- **Auth**: Required (admin only)
-- **Body**: Array of user objects
-- **Response**: Success message
+#### POST /api/v3/user/createWithList
+**Description:** Creates list of users  
+**Authentication:** Required  
+**Allowed Roles:** admin only  
+**Request Body:** Array of user objects
 
-#### Update User
-- **PUT** `/api/v3/user/{username}`
-- **Auth**: Required (ownership check)
-- **Body**: User object
-- **Response**: Success message
-- **Business Rules**:
-  - Users can only update their own profile
-  - Only admin can change user roles
+#### GET /api/v3/user/{username}
+**Description:** Get user by username  
+**Authentication:** Required  
+**Authorization:** Users can only view their own profile; admin can view all
 
-#### Delete User
-- **DELETE** `/api/v3/user/{username}`
-- **Auth**: Required (admin only)
-- **Response**: Success message
-- **Business Rule**: Cannot delete users with active orders
+#### PUT /api/v3/user/{username}
+**Description:** Update user  
+**Authentication:** Required  
+**Authorization:** Users can only edit their own profile; admin can edit all  
+**Special Rules:** Only admin can change user roles
 
-## State Transitions
-
-The API enforces these automatic state changes:
-
-1. **Place Order**: Pet status changes from "available" → "pending"
-2. **Cancel Order**: Pet status changes from "pending" → "available" (if order was "placed")
-3. **Deliver Order**: Pet status changes to "sold" (when order status becomes "delivered")
+#### DELETE /api/v3/user/{username}
+**Description:** Delete user  
+**Authentication:** Required  
+**Allowed Roles:** admin only  
+**Pre-conditions:** User must not have active orders
 
 ## Error Responses
 
-All endpoints return errors in this format:
+All endpoints return consistent error responses:
+
 ```json
 {
   "error": "Error message description"
@@ -179,29 +258,27 @@ All endpoints return errors in this format:
 
 Common HTTP status codes:
 - **400**: Bad Request (validation errors, business rule violations)
-- **401**: Unauthorized (missing or invalid token)
+- **401**: Unauthorized (missing or invalid authentication)
 - **403**: Forbidden (insufficient permissions)
 - **404**: Not Found (resource doesn't exist)
-- **409**: Conflict (duplicate username)
 - **500**: Internal Server Error
 
-## Sample Requests
+## Business Logic
 
-### Login and Get Token
-```bash
-curl "http://localhost:3002/api/v3/user/login?username=customer&password=customer123"
-```
+### State Transitions
+- Creating an order changes pet status: available → pending
+- Delivering an order changes pet status: pending → sold  
+- Cancelling a placed order returns pet status: pending → available
 
-### Find Available Pets
-```bash
-curl -H "Authorization: Bearer <token>" \
-  "http://localhost:3002/api/v3/pet/findByStatus?status=available"
-```
+### Validation Rules
+- Pets must be 'available' to be ordered
+- Order quantity must be exactly 1 for live animals
+- Only one active order per pet at a time
+- Cannot modify or cancel delivered orders
+- Only placed orders can be cancelled
 
-### Place Order
-```bash
-curl -X POST -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"petId": 1, "quantity": 1}' \
-  "http://localhost:3002/api/v3/store/order"
-```
+### Authorization Rules
+- Customers can only access their own orders and profile
+- Store owners can manage pets and view/process all orders
+- Only admins can relist sold pets, manage users, and change roles
+- Resource ownership is enforced with bypass for privileged roles

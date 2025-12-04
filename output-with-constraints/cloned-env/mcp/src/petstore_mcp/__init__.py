@@ -1,3 +1,3 @@
-"""Petstore MCP Server - Model Context Protocol server for Swagger Petstore API."""
+"""Petstore MCP server package."""
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"

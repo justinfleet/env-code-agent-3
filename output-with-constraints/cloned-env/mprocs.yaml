@@ -4,9 +4,10 @@ procs:
     env:
       NODE_ENV: development
       PORT: "3002"
-      JWT_SECRET: "dev-secret-key-change-in-production"
+      JWT_SECRET: "your-jwt-secret-key-here"
   mcp:
     cmd: ["uv", "run", "python", "-m", "petstore_mcp.server"]
+    cwd: mcp
     env:
       APP_ENV: local
       API_BASE_URL: "http://localhost:3002"

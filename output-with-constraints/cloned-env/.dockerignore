@@ -25,7 +25,5 @@ data/*.sqlite-wal
 # Meilisearch data
 data/meilisearch
 
-# Python cache
-__pycache__
-*.pyc
-.pytest_cache
+# Development tools
+mprocs.yaml

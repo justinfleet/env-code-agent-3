@@ -1,8 +1,7 @@
 {
-  "name": "petstore-env",
+  "name": "petstore-fleet",
   "version": "1.0.0",
-  "description": "Swagger Petstore Fleet Environment",
-  "private": true,
+  "description": "Swagger Petstore - OpenAPI 3.0 Fleet Environment",
   "packageManager": "pnpm@9.15.1",
   "engines": {
     "node": ">=20.9.0",
@@ -15,5 +14,8 @@
   },
   "devDependencies": {
     "mprocs": "^0.6.4"
-  }
+  },
+  "workspaces": [
+    "server"
+  ]
 }
