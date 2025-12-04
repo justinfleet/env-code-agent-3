@@ -1,10 +1,10 @@
-name: Deploy
+name: Build and Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   build:
@@ -28,14 +28,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build application
-        run: pnpm build
+      - name: Build project
+        run: pnpm --filter server build
 
       - name: Build Docker image
-        run: docker build -t petstore-api .
+        run: docker build -t swagger-petstore-api .
 
-      # Add deployment steps here as needed
-      # - name: Deploy to production
-      #   if: github.ref == 'refs/heads/main'
-      #   run: |
-      #     # Add your deployment commands here
+      - name: Test Docker image
+        run: |
+          docker run -d -p 3002:3002 --name test-container swagger-petstore-api
+          sleep 10
+          curl -f http://localhost:3002/health || exit 1
+          docker stop test-container
+          docker rm test-container
+
+  # Add deployment steps here as needed
+  # Example: push to container registry, deploy to cloud platform

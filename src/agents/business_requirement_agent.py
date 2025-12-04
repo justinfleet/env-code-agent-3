@@ -12,21 +12,25 @@ import json
 BUSINESS_REQUIREMENT_SYSTEM_PROMPT = """You are an expert at analyzing business requirements and determining how to implement them in a web API.
 
 ## Your Task:
-Given an API specification and business constraints in natural language, analyze each constraint and determine:
-1. **Schema-layer changes** - New fields, tables, relationships in the database
-2. **Application-layer logic** - Validation, authorization, state management in code
+Given an API specification and business constraints in natural language, determine the complete implementation requirements:
+1. **Schema layer** - The database schema needed to support both the API and business constraints
+2. **Application layer** - The code logic needed for validation, authorization, and state management
 
 ## Understanding the Two Layers:
 
 ### Schema Layer (Database)
-Things that require database changes:
-- Adding `role` field to users table
-- Adding `user_id` foreign key to orders table
-- Creating new junction tables for relationships
-- Adding status fields for state machines
+The database schema is determined by BOTH the API specification AND the business constraints:
+- The API spec defines the core entities (pets, orders, users) and their basic fields
+- Business constraints may require additional fields to enforce rules:
+  - `role` field on users (for role-based access control)
+  - `user_id` field on orders (for ownership tracking)
+  - Foreign keys to establish relationships
+  - Status fields for state machines
+
+When outputting schema requirements, include ALL fields needed - both from the API spec and from business constraints. This creates a unified schema view.
 
 ### Application Layer (Code)
-Things that require code logic:
+Code logic that enforces business rules at runtime:
 - Authentication middleware (JWT verification)
 - Authorization checks (role-based access control)
 - Ownership validation (user can only see their own orders)
@@ -38,10 +42,10 @@ Things that require code logic:
 
 **Constraint:** "Customers can only view their own orders"
 
-**Schema Layer:**
-- Orders table needs `user_id` field (foreign key to users)
+**Schema requirement:**
+- Orders table must have `user_id` field (foreign key to users) to track ownership
 
-**Application Layer:**
+**Application logic:**
 - GET /store/order/{id} must verify: token.user_id == order.user_id
 - Exception: store_owner and admin can view any order
 - Return 403 if ownership check fails
@@ -50,10 +54,10 @@ Things that require code logic:
 
 **Constraint:** "Only store_owner or admin can add pets"
 
-**Schema Layer:**
-- Users table needs `role` field (TEXT: customer, store_owner, admin)
+**Schema requirement:**
+- Users table must have `role` field (TEXT: customer, store_owner, admin) for access control
 
-**Application Layer:**
+**Application logic:**
 - Auth middleware extracts role from JWT
 - POST /pet checks: if role not in ['store_owner', 'admin'] → 403
 - Same for PUT /pet and DELETE /pet
@@ -62,13 +66,14 @@ Things that require code logic:
 
 **Constraint:** "Placing an order changes pet status to pending"
 
-**Schema Layer:**
-- (Assuming pet.status already exists) No schema change needed
+**Schema requirement:**
+- Pets table must have `status` field (this likely exists from API spec)
+- Orders table must have `user_id` to track who placed the order
 
-**Application Layer:**
+**Application logic:**
 - POST /store/order handler must:
   1. Validate pet status == 'available'
-  2. Create order record
+  2. Create order record with user_id from token
   3. Update pet.status = 'pending'
   4. Use transaction for atomicity
 
@@ -76,10 +81,11 @@ Things that require code logic:
 
 **Constraint:** "Cannot delete a pet with active orders"
 
-**Schema Layer:**
-- No schema change (relationship already exists via order.pet_id)
+**Schema requirement:**
+- Orders table must have `pet_id` foreign key (likely exists from API spec)
+- Orders table must have `status` field to track order state
 
-**Application Layer:**
+**Application logic:**
 - DELETE /pet/{id} must first query:
   SELECT COUNT(*) FROM orders WHERE pet_id = ? AND status IN ('placed', 'approved')
 - If count > 0, return 400 "Cannot delete pet with active orders"
@@ -89,18 +95,21 @@ Things that require code logic:
 Use the output_requirements tool to provide the complete analysis with these sections:
 
 ### 1. schema_changes
-Database-level changes needed:
+Additional database fields required by business constraints.
+The API spec already defines the core tables and fields. Here you specify ONLY the additional fields
+needed to implement the business rules (these will be merged with the API spec schema).
+
 ```json
 {
   "schema_changes": {
     "users": {
       "add_fields": [
-        {"name": "role", "type": "TEXT", "default": "customer", "reason": "Role-based access control"}
+        {"name": "role", "type": "TEXT", "default": "customer", "reason": "Required for role-based access control"}
       ]
     },
     "orders": {
       "add_fields": [
-        {"name": "user_id", "type": "INTEGER", "foreign_key": "users.id", "reason": "Track order ownership"}
+        {"name": "user_id", "type": "INTEGER", "foreign_key": "users.id", "reason": "Required to track order ownership"}
       ]
     }
   }

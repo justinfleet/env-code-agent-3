@@ -9,21 +9,18 @@ README.md
 .cache
 coverage
 
-# Environment files
+# Environment
 .env
 .env.local
 
-# Editor directories
+# Editors
 .vscode
 .idea
 
-# Runtime SQLite files
+# Runtime SQLite
 data/current.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 
 # Meilisearch data
 data/meilisearch
-
-# Development tools
-mprocs.yaml

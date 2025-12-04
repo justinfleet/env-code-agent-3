@@ -1,53 +1,73 @@
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import { Request, Response, NextFunction } from 'express';
-import db from './db.js';
+import db from './db';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key-here';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-development-jwt-secret-key-change-in-production';
 
-export interface AuthUser {
-  user_id: number;
+export interface User {
+  id: number;
   username: string;
   role: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  user_status?: number;
 }
 
 export interface AuthRequest extends Request {
-  user?: AuthUser;
+  user?: User;
 }
 
 export function hashPassword(password: string): string {
   return bcrypt.hashSync(password, 10);
 }
 
-export function comparePassword(password: string, hash: string): boolean {
-  // For development: also check if it's a plain text password match (for seed data)
-  if (password === hash) {
-    return true;
-  }
+export function verifyPassword(password: string, hash: string): boolean {
   return bcrypt.compareSync(password, hash);
 }
 
-export function generateToken(user: AuthUser): string {
-  return jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
+export function generateToken(user: User): string {
+  return jwt.sign(
+    {
+      user_id: user.id,
+      username: user.username,
+      role: user.role
+    },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
 }
 
-export function verifyAuth(req: AuthRequest, res: Response, next: NextFunction) {
+export function verifyToken(token: string): any {
+  return jwt.verify(token, JWT_SECRET);
+}
+
+export function authenticateToken(req: AuthRequest, res: Response, next: NextFunction) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' });
+    const decoded = verifyToken(token);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.user_id) as User;
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
-    req.user = decoded;
+    req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
+    return res.status(403).json({ error: 'Invalid or expired token' });
   }
 }
 
-export function requireRole(allowedRoles: string[]) {
+export function requireRoles(allowedRoles: string[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -62,12 +82,12 @@ export function requireRole(allowedRoles: string[]) {
 }
 
 export function checkOwnership(resource: string, ownerField: string, bypassRoles: string[] = []) {
-  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    // Admin and other bypass roles can access anything
+    // Bypass roles can access any resource
     if (bypassRoles.includes(req.user.role)) {
       return next();
     }
@@ -78,27 +98,20 @@ export function checkOwnership(resource: string, ownerField: string, bypassRoles
 
       if (resource === 'order') {
         const orderId = req.params.orderId;
-        query = 'SELECT user_id FROM orders WHERE id = ?';
-        params = [orderId];
+        const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+        
+        if (!order) {
+          return res.status(404).json({ error: 'Order not found' });
+        }
+
+        if ((order as any)[ownerField] !== req.user.id) {
+          return res.status(403).json({ error: 'Access denied' });
+        }
       } else if (resource === 'user') {
         const username = req.params.username;
         if (username !== req.user.username) {
-          return res.status(403).json({ error: 'Can only access your own profile' });
+          return res.status(403).json({ error: 'Access denied' });
         }
-        return next();
-      } else {
-        return res.status(500).json({ error: 'Unknown resource type' });
-      }
-
-      const stmt = db.prepare(query);
-      const row = stmt.get(...params) as any;
-
-      if (!row) {
-        return res.status(404).json({ error: `${resource} not found` });
-      }
-
-      if (row.user_id !== req.user.user_id) {
-        return res.status(403).json({ error: `Cannot access this ${resource}` });
       }
 
       next();

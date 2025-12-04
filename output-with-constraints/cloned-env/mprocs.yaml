@@ -4,10 +4,9 @@ procs:
     env:
       NODE_ENV: development
       PORT: "3002"
-      JWT_SECRET: "your-jwt-secret-key-here"
+      JWT_SECRET: "your-development-jwt-secret-key-change-in-production"
   mcp:
-    cmd: ["uv", "run", "python", "-m", "petstore_mcp.server"]
-    cwd: mcp
+    cmd: ["uv", "run", "python", "-m", "swagger_petstore_mcp.server"]
     env:
       APP_ENV: local
       API_BASE_URL: "http://localhost:3002"

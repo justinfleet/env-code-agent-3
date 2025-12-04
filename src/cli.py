@@ -330,31 +330,35 @@ Start by running validate_environment to see the current state."""
     print(f"📁 Output directory: {output_dir}")
     print(f"🔌 Generated environment will run on port: {args.port}\n")
 
-    code_agent = CodeGeneratorAgent(llm, output_dir, port=args.port)
-    code_result = code_agent.generate_code(specification=spec)
-
-    if not code_result['success']:
-        print("❌ Failed to generate code")
-        sys.exit(1)
-
-    print(f"\n✅ Code generation complete!")
-    print(f"   Generated {len(code_result['generated_files'])} files:")
-    for file in code_result['generated_files']:
-        print(f"   - {file}")
-
-    # Save specification and workflows for later validation
+    # Save specification and workflows BEFORE code generation
+    # (so they're available for debugging even if generation fails)
     import json
     spec_file = os.path.join(output_dir, ".spec.json")
     with open(spec_file, 'w') as f:
         json.dump(spec, f, indent=2)
-    print(f"\n   📋 Saved specification to .spec.json")
+    print(f"📋 Saved specification to .spec.json")
 
     if spec.get('workflows'):
         import yaml
         workflows_file = os.path.join(output_dir, "workflows.yaml")
         with open(workflows_file, 'w') as f:
             yaml.dump({"workflows": spec['workflows']}, f, default_flow_style=False, sort_keys=False)
-        print(f"   📋 Saved {len(spec['workflows'])} workflows to workflows.yaml")
+        print(f"📋 Saved {len(spec['workflows'])} workflows to workflows.yaml")
+    print()
+
+    code_agent = CodeGeneratorAgent(llm, output_dir, port=args.port)
+    code_result = code_agent.generate_code(specification=spec)
+
+    if not code_result['success']:
+        print("❌ Failed to generate code")
+        print(f"\n💡 Spec and workflows saved to {output_dir} for debugging")
+        print(f"   You can manually run: python3 scripts/run_workflows.py {workflows_file}")
+        sys.exit(1)
+
+    print(f"\n✅ Code generation complete!")
+    print(f"   Generated {len(code_result['generated_files'])} files:")
+    for file in code_result['generated_files']:
+        print(f"   - {file}")
 
     # ========================================
     # COMPLETE

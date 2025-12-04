@@ -11,6 +11,7 @@ data/*.db
 # Logs
 mprocs.log
 *.log
+logs/
 
 # Build artifacts
 dist/
@@ -29,6 +30,7 @@ server/.env
 
 # OS files
 .DS_Store
+Thumbs.db
 
 # Meilisearch
 meilisearch

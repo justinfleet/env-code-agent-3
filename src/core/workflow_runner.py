@@ -192,6 +192,11 @@ class WorkflowRunner:
                         actual_value = response_json.get(key)
                         expected_substituted = self._substitute_variables(str(expected_value))
 
+                        # Special handling for 'message' - also check 'error' field
+                        # since APIs often use either field for error messages
+                        if key == 'message' and actual_value is None and 'error' in response_json:
+                            actual_value = response_json.get('error')
+
                         if str(actual_value) != expected_substituted:
                             return {
                                 "success": False,
