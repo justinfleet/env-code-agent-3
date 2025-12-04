@@ -13,14 +13,22 @@ router.get('/login', (req, res) => {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
+    console.log(`Login attempt: ${username}`);
+
     const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username as string) as any;
     if (!user) {
+      console.log(`User not found: ${username}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    console.log(`User found, checking password for ${username}`);
+
     if (!comparePassword(password as string, user.password)) {
+      console.log(`Password mismatch for ${username}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    console.log(`Password correct for ${username}, generating token`);
 
     const token = generateToken({
       user_id: user.id,
@@ -32,11 +40,14 @@ router.get('/login', (req, res) => {
     const expiryDate = new Date();
     expiryDate.setHours(expiryDate.getHours() + 24);
 
+    console.log(`Login successful for ${username}`);
+
     res.json({
       token,
       expires: expiryDate.toISOString()
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

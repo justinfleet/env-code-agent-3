@@ -1,0 +1,618 @@
+workflows:
+- name: customer_login_and_browse_pets
+  description: Customer logs in successfully and browses available pets
+  category: happy_path
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer_token}}'
+  - action: GET /api/v3/pet/findByStatus?status=available
+    description: Browse available pets
+    headers:
+      Authorization: Bearer {{customer_token}}
+    expect:
+      status: 200
+      body_contains:
+        pets: '{{save:available_pets}}'
+  - action: GET /api/v3/pet/{{available_pet_id}}
+    description: View specific pet details
+    headers:
+      Authorization: Bearer {{customer_token}}
+    expect:
+      status: 200
+      body_contains:
+        id: '{{available_pet_id}}'
+        status: available
+- name: successful_purchase_flow
+  description: Complete purchase flow from order to delivery
+  category: happy_path
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer_token}}'
+  - action: POST /api/v3/store/order
+    description: Customer places order for available pet
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 1
+    expect:
+      status: 200
+      body_contains:
+        id: '{{save:order_id}}'
+        status: placed
+        petId: '{{available_pet_id}}'
+  - action: GET /api/v3/pet/{{available_pet_id}}
+    description: Verify pet status changed to pending
+    expect:
+      status: 200
+      body_contains:
+        status: pending
+  - action: GET /api/v3/user/login
+    description: Login as store owner
+    body:
+      username: '{{store_owner_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:owner_token}}'
+  - action: PUT /api/v3/store/order/{{order_id}}
+    description: Store owner approves the order
+    headers:
+      Authorization: Bearer {{owner_token}}
+    body:
+      status: approved
+    expect:
+      status: 200
+      body_contains:
+        status: approved
+  - action: PUT /api/v3/store/order/{{order_id}}
+    description: Store owner marks order as delivered
+    headers:
+      Authorization: Bearer {{owner_token}}
+    body:
+      status: delivered
+    expect:
+      status: 200
+      body_contains:
+        status: delivered
+  - action: GET /api/v3/pet/{{available_pet_id}}
+    description: Verify pet status changed to sold
+    expect:
+      status: 200
+      body_contains:
+        status: sold
+- name: customer_cannot_manage_pets
+  description: Customer is denied access to pet management endpoints
+  category: authorization
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer_token}}'
+  - action: POST /api/v3/pet
+    description: Try to add new pet (should fail)
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      name: Test Pet
+      status: available
+    expect:
+      status: 403
+  - action: PUT /api/v3/pet
+    description: Try to update pet (should fail)
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      id: '{{available_pet_id}}'
+      name: Updated Pet
+    expect:
+      status: 403
+  - action: DELETE /api/v3/pet/{{available_pet_id}}
+    description: Try to delete pet (should fail)
+    headers:
+      Authorization: Bearer {{customer_token}}
+    expect:
+      status: 403
+- name: guest_cannot_access_authenticated_endpoints
+  description: Unauthenticated users are denied access to protected endpoints
+  category: authorization
+  steps:
+  - action: POST /api/v3/store/order
+    description: Try to place order without auth (should fail)
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 1
+    expect:
+      status: 401
+  - action: POST /api/v3/pet
+    description: Try to add pet without auth (should fail)
+    body:
+      name: Test Pet
+      status: available
+    expect:
+      status: 401
+  - action: GET /api/v3/store/order/1
+    description: Try to view order without auth (should fail)
+    expect:
+      status: 401
+- name: customer_order_ownership_check
+  description: Customers can only access their own orders
+  category: authorization
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as first customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer1_token}}'
+  - action: POST /api/v3/store/order
+    description: First customer places order
+    headers:
+      Authorization: Bearer {{customer1_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 1
+    expect:
+      status: 200
+      body_contains:
+        id: '{{save:customer1_order_id}}'
+  - action: GET /api/v3/user/login
+    description: Login as second customer
+    body:
+      username: customer2
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer2_token}}'
+  - action: GET /api/v3/store/order/{{customer1_order_id}}
+    description: Second customer tries to view first customer's order (should fail)
+    headers:
+      Authorization: Bearer {{customer2_token}}
+    expect:
+      status: 403
+- name: store_owner_can_access_all_orders
+  description: Store owners can view and manage any customer's orders
+  category: authorization
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer_token}}'
+  - action: POST /api/v3/store/order
+    description: Customer places order
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 1
+    expect:
+      status: 200
+      body_contains:
+        id: '{{save:order_id}}'
+  - action: GET /api/v3/user/login
+    description: Login as store owner
+    body:
+      username: '{{store_owner_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:owner_token}}'
+  - action: GET /api/v3/store/order/{{order_id}}
+    description: Store owner can view customer's order
+    headers:
+      Authorization: Bearer {{owner_token}}
+    expect:
+      status: 200
+      body_contains:
+        id: '{{order_id}}'
+- name: cannot_order_unavailable_pet
+  description: Validation prevents ordering pets that are not available
+  category: validation
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer_token}}'
+  - action: POST /api/v3/store/order
+    description: Try to order pending pet (should fail)
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      petId: '{{pending_pet_id}}'
+      quantity: 1
+    expect:
+      status: 400
+      body_contains:
+        error: Pet is not available for purchase
+  - action: POST /api/v3/store/order
+    description: Try to order sold pet (should fail)
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      petId: '{{sold_pet_id}}'
+      quantity: 1
+    expect:
+      status: 400
+      body_contains:
+        error: Pet is not available for purchase
+- name: quantity_must_be_one
+  description: Validation enforces quantity of 1 for live animals
+  category: validation
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer_token}}'
+  - action: POST /api/v3/store/order
+    description: Try to order multiple pets (should fail)
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 2
+    expect:
+      status: 400
+      body_contains:
+        error: Quantity must be 1 for live animals
+  - action: POST /api/v3/store/order
+    description: Try to order zero pets (should fail)
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 0
+    expect:
+      status: 400
+      body_contains:
+        error: Quantity must be 1 for live animals
+- name: cannot_order_pet_with_active_order
+  description: Validation prevents multiple active orders for the same pet
+  category: validation
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as first customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer1_token}}'
+  - action: POST /api/v3/store/order
+    description: First customer places order
+    headers:
+      Authorization: Bearer {{customer1_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 1
+    expect:
+      status: 200
+      body_contains:
+        id: '{{save:order_id}}'
+  - action: GET /api/v3/user/login
+    description: Login as second customer
+    body:
+      username: customer2
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer2_token}}'
+  - action: POST /api/v3/store/order
+    description: Second customer tries to order same pet (should fail)
+    headers:
+      Authorization: Bearer {{customer2_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 1
+    expect:
+      status: 400
+      body_contains:
+        error: Pet already has an active order
+- name: order_creation_changes_pet_status
+  description: Placing an order automatically changes pet status to pending
+  category: state_transition
+  steps:
+  - action: GET /api/v3/pet/{{available_pet_id}}
+    description: Verify pet is initially available
+    expect:
+      status: 200
+      body_contains:
+        status: available
+  - action: GET /api/v3/user/login
+    description: Login as customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer_token}}'
+  - action: POST /api/v3/store/order
+    description: Customer places order
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 1
+    expect:
+      status: 200
+      body_contains:
+        id: '{{save:order_id}}'
+  - action: GET /api/v3/pet/{{available_pet_id}}
+    description: Verify pet status changed to pending
+    expect:
+      status: 200
+      body_contains:
+        status: pending
+- name: order_delivery_marks_pet_sold
+  description: Marking order as delivered changes pet status to sold
+  category: state_transition
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer_token}}'
+  - action: POST /api/v3/store/order
+    description: Customer places order
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 1
+    expect:
+      status: 200
+      body_contains:
+        id: '{{save:order_id}}'
+  - action: GET /api/v3/user/login
+    description: Login as store owner
+    body:
+      username: '{{store_owner_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:owner_token}}'
+  - action: PUT /api/v3/store/order/{{order_id}}
+    description: Store owner marks order as delivered
+    headers:
+      Authorization: Bearer {{owner_token}}
+    body:
+      status: delivered
+    expect:
+      status: 200
+  - action: GET /api/v3/pet/{{available_pet_id}}
+    description: Verify pet status changed to sold
+    expect:
+      status: 200
+      body_contains:
+        status: sold
+- name: order_cancellation_returns_pet_to_available
+  description: Cancelling a placed order returns pet to available status
+  category: state_transition
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer_token}}'
+  - action: POST /api/v3/store/order
+    description: Customer places order
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 1
+    expect:
+      status: 200
+      body_contains:
+        id: '{{save:order_id}}'
+  - action: GET /api/v3/pet/{{available_pet_id}}
+    description: Verify pet status is pending
+    expect:
+      status: 200
+      body_contains:
+        status: pending
+  - action: DELETE /api/v3/store/order/{{order_id}}
+    description: Customer cancels the order
+    headers:
+      Authorization: Bearer {{customer_token}}
+    expect:
+      status: 200
+  - action: GET /api/v3/pet/{{available_pet_id}}
+    description: Verify pet status returned to available
+    expect:
+      status: 200
+      body_contains:
+        status: available
+- name: cannot_delete_pet_with_active_orders
+  description: Pre-condition check prevents deleting pets with active orders
+  category: error_handling
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer_token}}'
+  - action: POST /api/v3/store/order
+    description: Customer places order
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 1
+    expect:
+      status: 200
+      body_contains:
+        id: '{{save:order_id}}'
+  - action: GET /api/v3/user/login
+    description: Login as store owner
+    body:
+      username: '{{store_owner_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:owner_token}}'
+  - action: DELETE /api/v3/pet/{{available_pet_id}}
+    description: Try to delete pet with active order (should fail)
+    headers:
+      Authorization: Bearer {{owner_token}}
+    expect:
+      status: 400
+      body_contains:
+        error: Cannot delete pet with active orders
+- name: cannot_modify_delivered_orders
+  description: Pre-condition check prevents modifying delivered orders
+  category: error_handling
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as customer
+    body:
+      username: '{{customer_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:customer_token}}'
+  - action: POST /api/v3/store/order
+    description: Customer places order
+    headers:
+      Authorization: Bearer {{customer_token}}
+    body:
+      petId: '{{available_pet_id}}'
+      quantity: 1
+    expect:
+      status: 200
+      body_contains:
+        id: '{{save:order_id}}'
+  - action: GET /api/v3/user/login
+    description: Login as store owner
+    body:
+      username: '{{store_owner_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:owner_token}}'
+  - action: PUT /api/v3/store/order/{{order_id}}
+    description: Store owner marks order as delivered
+    headers:
+      Authorization: Bearer {{owner_token}}
+    body:
+      status: delivered
+    expect:
+      status: 200
+  - action: PUT /api/v3/store/order/{{order_id}}
+    description: Try to modify delivered order (should fail)
+    headers:
+      Authorization: Bearer {{owner_token}}
+    body:
+      status: placed
+    expect:
+      status: 400
+      body_contains:
+        error: Delivered orders cannot be modified
+  - action: DELETE /api/v3/store/order/{{order_id}}
+    description: Try to cancel delivered order (should fail)
+    headers:
+      Authorization: Bearer {{customer_token}}
+    expect:
+      status: 400
+      body_contains:
+        error: Delivered orders cannot be cancelled
+- name: admin_can_relist_sold_pets
+  description: Only admin role can change pet status from sold back to available
+  category: authorization
+  steps:
+  - action: GET /api/v3/user/login
+    description: Login as store owner
+    body:
+      username: '{{store_owner_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:owner_token}}'
+  - action: PUT /api/v3/pet
+    description: Store owner tries to relist sold pet (should fail)
+    headers:
+      Authorization: Bearer {{owner_token}}
+    body:
+      id: '{{sold_pet_id}}'
+      status: available
+    expect:
+      status: 403
+  - action: GET /api/v3/user/login
+    description: Login as admin
+    body:
+      username: '{{admin_username}}'
+      password: '{{test_password}}'
+    expect:
+      status: 200
+      body_contains:
+        token: '{{save:admin_token}}'
+  - action: PUT /api/v3/pet
+    description: Admin successfully relists sold pet
+    headers:
+      Authorization: Bearer {{admin_token}}
+    body:
+      id: '{{sold_pet_id}}'
+      status: available
+    expect:
+      status: 200
+      body_contains:
+        status: available

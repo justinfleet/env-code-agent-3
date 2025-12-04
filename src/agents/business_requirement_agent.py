@@ -294,11 +294,22 @@ Each workflow has:
   description: "Login as customer"      # What this step does
   body:                                 # Request body (for POST/PUT)
     username: "{{customer_username}}"
-    password: "{{customer_password}}"
+    password: "{{test_password}}"
   expect:
     status: 200                         # Expected HTTP status
     body_contains:                      # Partial body matching
       token: "{{save:auth_token}}"      # Save value for later use
+
+# For GET requests with query parameters (like some login endpoints):
+- action: "GET /api/v3/user/login"     # Some APIs use GET for login
+  description: "Login via query params"
+  query:                                # Query parameters (appended to URL)
+    username: "{{customer_username}}"
+    password: "{{test_password}}"
+  expect:
+    status: 200
+    body_contains:
+      sessionToken: "{{save:auth_token}}"  # Note: field name may vary (token, sessionToken, etc.)
 
 - action: "GET /pet/{{pet_id}}"        # Use saved variables
   headers:
@@ -308,6 +319,10 @@ Each workflow has:
     body_contains:
       status: "available"
 ```
+
+IMPORTANT: Check the "Login Endpoint Details" section below to determine:
+- Whether login is GET (query params) or POST (body)
+- What the response field name is (token vs sessionToken)
 
 ## Variable Syntax:
 - `{{variable}}` - Use a previously saved variable
@@ -871,10 +886,16 @@ Be thorough and specific - this specification will be used to generate actual wo
         }
         requirements_json = json.dumps(app_requirements, indent=2)
 
+        # Extract login endpoint details from spec
+        login_info = self._get_login_endpoint_info(enriched_spec)
+
         workflow_prompt = f"""Based on the following API specification and business requirements, generate comprehensive validation workflows.
 
 ## API Specification (with business requirement fields already included):
 {spec_summary}
+
+## Login Endpoint Details:
+{login_info}
 
 ## Business Rules to Enforce:
 {requirements_json}
@@ -918,3 +939,55 @@ Use the output_workflows tool to submit the complete workflow list.
         self.system_prompt = BUSINESS_REQUIREMENT_SYSTEM_PROMPT
 
         return self.workflows if self.workflows else []
+
+    def _get_login_endpoint_info(self, spec: Dict[str, Any]) -> str:
+        """Extract login endpoint details from the specification"""
+        endpoints = spec.get('endpoints', [])
+        base_path = spec.get('base_path', '')
+
+        # Find login endpoint
+        login_endpoint = None
+        for ep in endpoints:
+            path = ep.get('path', '').lower()
+            if 'login' in path:
+                login_endpoint = ep
+                break
+
+        if not login_endpoint:
+            return """Login endpoint not found in spec. Assume standard format:
+- Action: POST /user/login
+- Body: { "username": "...", "password": "..." }
+- Response: { "token": "..." }"""
+
+        method = login_endpoint.get('method', 'GET').upper()
+        path = login_endpoint.get('path', '')
+        params = login_endpoint.get('parameters', [])
+
+        # Determine if params are query or body
+        param_location = "query" if method == "GET" else "body"
+        for p in params:
+            if p.get('in'):
+                param_location = p.get('in')
+                break
+
+        # Build info string
+        info_lines = [
+            f"- Method: {method}",
+            f"- Path: {path}",
+            f"- Parameters location: {param_location}",
+        ]
+
+        if param_location == "query":
+            info_lines.append(f"- Example: {method} {path}?username={{{{username}}}}&password={{{{password}}}}")
+            info_lines.append("- NOTE: For GET login, pass credentials as query parameters, NOT request body")
+        else:
+            info_lines.append(f"- Example body: {{ \"username\": \"...\", \"password\": \"...\" }}")
+
+        # Add response info if available
+        responses = login_endpoint.get('responses', {})
+        if responses:
+            success_resp = responses.get('200', responses.get('success', {}))
+            if success_resp:
+                info_lines.append(f"- Success response may include: token/sessionToken field")
+
+        return "\n".join(info_lines)

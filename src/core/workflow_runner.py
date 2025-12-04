@@ -88,7 +88,13 @@ class WorkflowRunner:
 
             if not step_result['success']:
                 workflow_success = False
-                print(f"      ❌ Step {i+1}: {step_result.get('error', 'Failed')}")
+                error_msg = step_result.get('error', 'Failed')
+                response_preview = step_result.get('response', '')
+                if response_preview and len(str(response_preview)) > 100:
+                    response_preview = str(response_preview)[:100] + '...'
+                print(f"      ❌ Step {i+1} [{step.get('action', '')}]: {error_msg}")
+                if response_preview:
+                    print(f"         Response: {response_preview}")
                 break  # Stop workflow on first failure
             else:
                 print(f"      ✓ Step {i+1}: {step.get('description', step.get('action', ''))}")
@@ -116,6 +122,16 @@ class WorkflowRunner:
 
         method = parts[0].upper()
         path = self._substitute_variables(parts[1])
+
+        # Handle query parameters in step (separate from URL query string)
+        query_params = step.get('query', {})
+        if query_params:
+            query_params = self._substitute_variables_in_obj(query_params)
+            query_string = '&'.join([f"{k}={v}" for k, v in query_params.items()])
+            if '?' in path:
+                path = f"{path}&{query_string}"
+            else:
+                path = f"{path}?{query_string}"
 
         # Build URL
         url = self.base_url + path
