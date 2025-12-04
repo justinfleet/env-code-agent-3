@@ -13,6 +13,7 @@ from .core.llm_client import LLMClient
 from .agents.exploration_agent import ExplorationAgent
 from .agents.specification_agent import SpecificationAgent
 from .agents.spec_ingestion_agent import SpecificationIngestionAgent
+from .agents.business_requirement_agent import BusinessRequirementAgent
 from .agents.code_generator_agent import CodeGeneratorAgent
 
 
@@ -25,8 +26,8 @@ def main():
     )
     parser.add_argument(
         "command",
-        choices=["clone", "explore", "from-spec"],
-        help="Command to run: 'clone' = explore live API and clone, 'explore' = only explore API, 'from-spec' = clone from formal specification"
+        choices=["clone", "explore", "from-spec", "from-spec-with-constraints"],
+        help="Command to run: 'clone' = explore live API and clone, 'explore' = only explore API, 'from-spec' = clone from formal specification, 'from-spec-with-constraints' = clone with business constraints"
     )
     parser.add_argument(
         "target",
@@ -59,6 +60,12 @@ def main():
         help="Port for the generated environment to run on (default: 3002)",
         default=3002
     )
+    parser.add_argument(
+        "--constraints",
+        "-c",
+        help="Path to file containing business constraints (for from-spec-with-constraints command)",
+        default=None
+    )
 
     args = parser.parse_args()
 
@@ -73,9 +80,73 @@ def main():
     llm = LLMClient(api_key=api_key, max_tokens=8192)
 
     # ========================================
-    # BRANCH: from-spec vs clone/explore
+    # BRANCH: from-spec-with-constraints vs from-spec vs clone/explore
     # ========================================
-    if args.command == "from-spec":
+    if args.command == "from-spec-with-constraints":
+        # ========================================
+        # PHASE 1: SPECIFICATION INGESTION
+        # ========================================
+        print(f"\n{'='*70}")
+        print(f"📋 PHASE 1: SPECIFICATION INGESTION")
+        print(f"{'='*70}\n")
+
+        ingestion_agent = SpecificationIngestionAgent(llm)
+        spec_result = ingestion_agent.ingest_spec(
+            spec_source=args.target,
+            source_type="auto"
+        )
+
+        if not spec_result['success']:
+            print("❌ Failed to parse specification")
+            sys.exit(1)
+
+        base_spec = spec_result['specification']
+
+        # ========================================
+        # PHASE 2: BUSINESS REQUIREMENTS ANALYSIS
+        # ========================================
+        print(f"\n{'='*70}")
+        print(f"🔍 PHASE 2: BUSINESS REQUIREMENTS ANALYSIS")
+        print(f"{'='*70}\n")
+
+        # Load constraints from file or prompt user
+        if args.constraints:
+            print(f"📂 Loading constraints from: {args.constraints}")
+            try:
+                with open(args.constraints, 'r') as f:
+                    constraints = f.read()
+                print(f"✅ Loaded {len(constraints)} characters of constraints\n")
+            except Exception as e:
+                print(f"❌ Failed to load constraints file: {e}")
+                sys.exit(1)
+        else:
+            print("📝 No constraints file provided. Enter constraints below.")
+            print("   (Type your constraints, then press Ctrl+D or Ctrl+Z when done)\n")
+            try:
+                constraints = sys.stdin.read()
+            except KeyboardInterrupt:
+                print("\n\n❌ Cancelled by user")
+                sys.exit(1)
+
+        if not constraints.strip():
+            print("❌ No constraints provided")
+            sys.exit(1)
+
+        # Analyze business requirements
+        requirement_agent = BusinessRequirementAgent(llm)
+        requirement_result = requirement_agent.analyze_constraints(
+            specification=base_spec,
+            constraints=constraints
+        )
+
+        if not requirement_result['success']:
+            print("❌ Failed to analyze business requirements")
+            sys.exit(1)
+
+        # Use enriched specification for code generation
+        spec = requirement_result['enriched_specification']
+
+    elif args.command == "from-spec":
         # ========================================
         # PHASE 1: SPECIFICATION INGESTION
         # ========================================
@@ -155,9 +226,14 @@ def main():
         print(f"   Tables: {len(spec.get('database', {}).get('tables', []))}")
 
     # ========================================
-    # CODE GENERATION (Phase 2 for from-spec, Phase 3 for clone)
+    # CODE GENERATION (Phase 2 for from-spec, Phase 3 for clone/from-spec-with-constraints)
     # ========================================
-    phase_num = "2" if args.command == "from-spec" else "3"
+    if args.command == "from-spec":
+        phase_num = "2"
+    elif args.command == "from-spec-with-constraints":
+        phase_num = "3"
+    else:
+        phase_num = "3"
     print(f"\n{'='*70}")
     print(f"⚡ PHASE {phase_num}: FLEET ENVIRONMENT GENERATION")
     print(f"{'='*70}\n")

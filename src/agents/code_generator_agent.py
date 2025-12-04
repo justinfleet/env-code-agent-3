@@ -14,6 +14,19 @@ CODE_GENERATION_SYSTEM_PROMPT = """You are an expert full-stack developer specia
 ## Your Task:
 Generate a complete, production-ready Fleet environment based on the provided API specification.
 
+## Business Requirements Support:
+If the specification includes a `business_requirements` section, you MUST implement ALL the business logic it defines. This section contains analyzed constraints that describe how the API should actually behave - including authentication, authorization, state machines, validation rules, and pre-conditions.
+
+Read the `business_requirements` carefully and implement:
+- **Schema changes**: Add any required database fields (e.g., user_id for ownership, status fields for state machines)
+- **Auth configuration**: Implement whatever authentication mechanism is specified
+- **Role-based access**: Enforce the role requirements for each endpoint as defined in `endpoint_auth`
+- **State transitions**: Only allow the state changes defined in `state_transitions`
+- **Validation rules**: Implement all validation rules with appropriate error responses
+- **Pre-conditions**: Check all pre-conditions before allowing operations
+
+The business requirements are the source of truth for how the API should behave. Your generated code must enforce these constraints.
+
 ## Required Files (Complete Checklist):
 
 **Configuration Files:**
@@ -1058,6 +1071,7 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
 
         Args:
             specification: The API specification from SpecificationAgent
+                          May include 'business_requirements' section from BusinessRequirementAgent
 
         Returns:
             Generation results including file list
@@ -1068,7 +1082,30 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
         # Format specification for the prompt
         spec_json = json.dumps(specification, indent=2)
 
+        # Check if this is an enriched specification with business requirements
+        has_business_requirements = 'business_requirements' in specification
+
+        # Build the prompt with appropriate emphasis on business requirements
+        if has_business_requirements:
+            business_req_intro = """
+IMPORTANT: This specification includes BUSINESS REQUIREMENTS that define how the API must behave.
+You MUST implement all the constraints, authentication, authorization, state transitions, and validation rules
+defined in the `business_requirements` section. These are not optional - they are core to the API's correctness.
+
+Pay special attention to:
+- `auth_config`: How authentication should work
+- `roles`: The role hierarchy and permissions
+- `endpoint_auth`: Which roles can access which endpoints
+- `state_transitions`: Valid state changes for entities
+- `validation_rules`: Business logic validations to enforce
+- `pre_conditions`: Checks that must pass before operations
+
+"""
+        else:
+            business_req_intro = ""
+
         initial_prompt = f"""Generate a complete Fleet environment based on this specification:
+{business_req_intro}
 
 {spec_json}
 

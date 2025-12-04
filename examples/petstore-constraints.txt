@@ -1,0 +1,31 @@
+# Petstore Business Constraints
+
+## Authentication & Roles
+- Users must authenticate to perform write operations
+- Four roles exist: guest (unauthenticated), customer, store_owner, admin
+- Role hierarchy: admin > store_owner > customer > guest
+- JWT tokens should contain user_id, username, and role
+
+## Pet Management
+- Only store_owner or admin can add, edit, or delete pets
+- Cannot delete a pet that has active orders (placed or approved status)
+- Re-listing a sold pet (changing status back to available) requires admin role
+- Pet status transitions: available -> pending -> sold (one direction only, except admin can reset)
+
+## Ordering
+- Only available pets can be ordered
+- Placing an order changes the pet's status to pending
+- Only one order per pet allowed (quantity is always 1 for live animals)
+- Customers can only view and cancel their own orders
+- A pet can only have ONE active order at a time (placed or approved status)
+
+## Order Lifecycle
+- Only store_owner or admin can approve orders (change status from placed to approved)
+- Only store_owner or admin can mark orders as delivered
+- Customers can cancel their own orders if status is still "placed" (pet returns to available)
+- Delivered orders cannot be modified or cancelled
+
+## User Management
+- Users can only view and edit their own profile
+- Only admin can delete users or change user roles
+- Cannot delete a user that has active orders
