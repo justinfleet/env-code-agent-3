@@ -903,11 +903,21 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
                 spec_validation = self._validate_api_endpoints()
 
                 if not spec_validation['success']:
+                    # Print detailed failure info to console
+                    print(f"\n❌ API Validation Failed: {spec_validation.get('summary', 'See errors')}")
+                    print(f"   Passed: {spec_validation.get('passed', 0)}, Failed: {spec_validation.get('failed', 0)}")
+                    print("\n   Failed endpoints:")
+                    for test in spec_validation.get('failed_tests', []):
+                        print(f"     - {test.get('endpoint')}: {test.get('message')}")
+                    print()
+
                     return {
                         "success": False,
                         "phase": "api-validation",
                         "errors": spec_validation.get('errors', 'API validation failed'),
                         "failed_tests": spec_validation.get('failed_tests', []),
+                        "passed_count": spec_validation.get('passed', 0),
+                        "failed_count": spec_validation.get('failed', 0),
                         "stdout": "",
                         "message": f"❌ API validation failed: {spec_validation.get('summary', 'See errors')}"
                     }
@@ -1016,9 +1026,12 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
                                 })
 
                     except urllib.error.HTTPError as e:
-                        # 404 is acceptable for parameterized routes with test data
-                        # 401/403 means endpoint exists but needs auth
-                        if e.code in [404, 401, 403]:
+                        # These status codes mean the endpoint exists and is working:
+                        # 400 = Bad Request (missing required params - endpoint exists)
+                        # 401 = Unauthorized (needs auth - endpoint exists)
+                        # 403 = Forbidden (needs different role - endpoint exists)
+                        # 404 = Not Found (resource doesn't exist, but route works)
+                        if e.code in [400, 401, 403, 404]:
                             passed_tests.append({
                                 "endpoint": f"{method} {path}",
                                 "status": "✓",
