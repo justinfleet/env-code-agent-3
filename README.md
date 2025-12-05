@@ -15,6 +15,11 @@ env-code-agent-2 is an **agentic coding system** that generates Fleet-compliant 
 1. 📋 **Parses formal specs** (OpenAPI, RealWorld, custom JSON)
 2. ⚡ **Writes production code** directly from the specification
 
+### Approach 3: Specification + Business Constraints (3-Phase)
+1. 📋 **Parses formal specs** (OpenAPI, RealWorld, custom JSON)
+2. 🔍 **Analyzes business constraints** in natural language → determines schema changes & application logic
+3. ⚡ **Writes production code** with business rules enforced + generates validation workflows
+
 Both approaches produce:
 ✅ **Fleet-compliant** output (seed.db, deterministic, backend-driven)
 
@@ -56,6 +61,35 @@ Both approaches produce:
 ┌─────────────────────────────────────────────────┐
 │      Code Generator Agent (LLM coding)          │
 │  Writes: Express server + SQLite + routes       │
+└─────────────────┬───────────────────────────────┘
+                  │ Generated environment
+                  ↓
+                Fleet-compliant environment ready! ✅
+```
+
+### Approach 3: Specification + Business Constraints (3-Phase)
+```
+┌─────────────────────────────────────────────────┐
+│    Specification Ingestion Agent (Parser)       │
+│  Reads: OpenAPI, RealWorld, custom specs        │
+│  Parses: endpoints, schemas, relationships      │
+└─────────────────┬───────────────────────────────┘
+                  │ Base specification
+                  ↓
+┌─────────────────────────────────────────────────┐
+│    Business Requirement Agent (LLM analysis)    │
+│  Input: Natural language constraints file       │
+│  Analyzes: Auth, roles, state machines, rules   │
+│  Outputs: Schema changes + Application logic    │
+│  Generates: Validation test workflows           │
+└─────────────────┬───────────────────────────────┘
+                  │ Enriched specification + workflows
+                  ↓
+┌─────────────────────────────────────────────────┐
+│      Code Generator Agent (LLM coding)          │
+│  Writes: Express server + SQLite + routes       │
+│  Implements: Business rules from requirements   │
+│  Validates: Runs workflow tests to verify       │
 └─────────────────┬───────────────────────────────┘
                   │ Generated environment
                   ↓
@@ -124,6 +158,40 @@ python3 -m src.cli from-spec ./spec.json \
   --port 3002
 ```
 
+#### Option 3: Clone from Specification + Business Constraints (3-Phase)
+
+```bash
+# From OpenAPI spec with business constraints
+python3 -m src.cli from-spec-with-constraints https://petstore3.swagger.io/api/v3/openapi.json \
+    -c examples/petstore-constraints.txt \
+    -o ./output-petstore
+
+# Validate and fix an existing environment
+python3 -m src.cli validate ./output-petstore/cloned-env
+```
+
+**Example constraints file (petstore-constraints.txt):**
+```text
+## Authentication & Roles
+- All API operations require authentication
+- Three roles exist: customer, store_owner, admin
+- Role hierarchy: admin > store_owner > customer
+
+## Pet Management
+- Only store_owner or admin can add, edit, or delete pets
+- Cannot delete a pet that has active orders
+
+## Order Management
+- Customers can only view their own orders
+- Only store_owner or admin can approve/deliver orders
+- Placing an order changes pet status to "pending"
+- Delivering an order changes pet status to "sold"
+
+## Validation Rules
+- Order quantity must be exactly 1
+- Cannot order a pet that is not "available"
+```
+
 **Supported spec formats:**
 - Documentation URLs (HTML - auto-extracts API info)
 - OpenAPI 3.x (JSON/YAML)
@@ -182,6 +250,50 @@ The **Specification Agent** synthesizes findings into structured format:
   }
 }
 ```
+
+### Phase 2b: Business Requirement Analysis (for `from-spec-with-constraints`)
+
+The **Business Requirement Agent** analyzes natural language constraints and determines implementation requirements at two layers:
+
+#### Schema Layer (Database)
+Determines additional database fields needed to enforce business rules:
+- `role` field on users table (for role-based access control)
+- `user_id` field on orders table (for ownership tracking)
+- Status fields for state machines
+- Foreign keys to establish relationships
+
+#### Application Layer (Code Logic)
+Determines runtime enforcement rules:
+- **Authentication**: JWT-based auth with configurable endpoints
+- **Authorization**: Role-based access control per endpoint
+- **Ownership checks**: Users can only access their own resources
+- **State transitions**: Automatic status changes (e.g., order placed → pet pending)
+- **Pre-conditions**: Checks before operations (e.g., can't delete pet with active orders)
+- **Validation rules**: Field-level validation (e.g., quantity must be 1)
+
+#### Output: Enriched Specification
+The agent produces a specification enriched with:
+```json
+{
+  "schema_changes": { "users": { "add_fields": [{"name": "role", ...}] } },
+  "auth_config": { "method": "jwt", "token_payload": ["user_id", "username", "role"] },
+  "roles": { "customer": {...}, "store_owner": {...}, "admin": {...} },
+  "endpoint_auth": [{ "path": "/pet", "allowed_roles": ["store_owner", "admin"] }],
+  "state_transitions": [{ "trigger": "create order", "effect": "pet.status = pending" }],
+  "validation_rules": [{ "field": "quantity", "check": "value == 1" }],
+  "pre_conditions": [{ "endpoint": "DELETE /pet", "check": "no active orders" }]
+}
+```
+
+#### Output: Validation Workflows
+The agent also generates executable test workflows (YAML) that verify the implementation:
+- **Happy path tests**: Normal successful operations
+- **Authorization tests**: Role-based access control enforcement
+- **Validation tests**: Business rule enforcement
+- **State transition tests**: Automatic state changes
+- **Error handling tests**: Pre-condition checks
+
+These workflows run against the generated API to verify correctness.
 
 ### Phase 3: Code Generation
 
@@ -306,19 +418,22 @@ Generated environments follow all Fleet standards:
 env-code-agent/
 ├── src/
 │   ├── core/
-│   │   ├── llm-client.ts        # Anthropic API wrapper
-│   │   ├── base-agent.ts        # Agentic loop framework
-│   │   └── orchestrator.ts      # Main coordinator
+│   │   ├── llm_client.py         # Anthropic API wrapper
+│   │   ├── base_agent.py         # Agentic loop framework
+│   │   └── workflow_runner.py    # Test workflow executor
 │   ├── agents/
-│   │   ├── exploration-agent.ts      # LLM-driven API explorer
-│   │   ├── specification-agent.ts    # Spec generator
-│   │   └── code-generator-agent.ts   # Code writer
-│   ├── tools/
-│   │   ├── tool-definitions.ts  # Tool schemas
-│   │   └── tool-executor.ts     # Tool implementation
-│   └── cli.ts                   # CLI entry point
-├── output/                      # Generated environments
-└── DESIGN_AGENTIC.md           # Architecture docs
+│   │   ├── exploration_agent.py       # LLM-driven API explorer
+│   │   ├── specification_agent.py     # Spec generator from exploration
+│   │   ├── spec_ingestion_agent.py    # OpenAPI/formal spec parser
+│   │   ├── business_requirement_agent.py  # Constraint analyzer
+│   │   └── code_generator_agent.py    # Code writer with validation
+│   └── cli.py                    # CLI entry point
+├── scripts/
+│   └── run_workflows.py          # Manual workflow test runner
+├── examples/
+│   └── petstore-constraints.txt  # Example business constraints
+├── output/                       # Generated environments
+└── DESIGN_AGENTIC.md            # Architecture docs
 ```
 
 ## Development
@@ -334,6 +449,33 @@ pnpm build
 pnpm start clone http://localhost:3000
 ```
 
+## Observations & Lessons Learned (Business Constraints Mode)
+
+The `from-spec-with-constraints` mode is significantly more complex than simple spec-to-code generation. Key observations:
+
+### Multi-step Workflows are Harder
+Workflows involving multiple API calls are significantly more difficult to fully pass than single API call validations. Each step depends on previous steps, state accumulates, and any mismatch compounds into failures.
+
+### Authentication Adds Complexity
+Adding authentication makes it harder to get generated workflow tests to pass:
+- **Endpoint mismatches**: The LLM sometimes generates slightly different auth API endpoints in workflows vs. the generated code (e.g., `/user/login` vs `/api/v3/user/login`)
+- **Token field names**: Code may return `sessionToken` while workflows expect `token`
+- **Password hashing**: The coding agent sometimes generates invalid bcrypt hashes in seed data that don't match the test password
+
+These issues required adding explicit guidance to the prompts (e.g., "always use `token` field name", "use this exact bcrypt hash").
+
+### Prompt Size vs. Determinism Tradeoff
+As prompts grow larger with more guidance, non-determinism increases:
+- Despite explicit instructions to call multiple `write_file` tools in parallel, the agent sometimes only calls one at a time
+- This behavior becomes more frequent as the prompt becomes larger
+- Larger prompts may cause the LLM to "forget" or deprioritize certain instructions
+
+### Database State Pollution
+Workflows that modify state (e.g., placing orders) affect subsequent workflows. Solutions:
+- Reset database between workflows via `/reset` endpoint
+- Use different resources (pet IDs) for different tests
+- Design workflows to be independent/idempotent
+
 ## Roadmap
 
 - [x] Agentic exploration with LLM decision-making
@@ -343,10 +485,11 @@ pnpm start clone http://localhost:3000
 - [x] pnpm monorepo structure
 - [x] mprocs.yaml for multi-process development
 - [x] Dockerfile for production deployment
-- [ ] Validation agent with differential testing
-- [ ] Iterative refinement loop
+- [x] Business requirement analysis from natural language constraints
+- [x] Validation workflows with test runner
+- [x] Schema + application layer separation
+- [ ] Database reset endpoint for workflow isolation
 - [ ] SvelteKit client generation
-- [ ] Support for authenticated APIs
 - [ ] CLI tool cloning (non-HTTP)
 
 ## Contributing
