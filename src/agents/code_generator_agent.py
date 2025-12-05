@@ -130,7 +130,6 @@ db.pragma('foreign_keys = ON');
 - **Real SQL queries** - No mocks! Actual database queries
 - **Routes organized by resource** - One file per resource in server/src/routes/
 - **Database access**: Use better-sqlite3 library
-- **POST /reset endpoint** - Copies seed.db to current.sqlite and reopens DB connection (for testing)
 
 ### 3. MCP Server (Python)
 - **Python-based MCP server** in mcp/ directory
