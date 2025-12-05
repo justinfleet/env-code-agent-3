@@ -1,10 +1,10 @@
-# env-code-agent-2
+# env-code-agent-3
 
 🤖 **Autonomous Fleet environment generation** from live APIs or formal specifications.
 
 ## Overview
 
-env-code-agent-2 is an **agentic coding system** that generates Fleet-compliant environments through two approaches:
+env-code-agent-3 is an **agentic coding system** that generates Fleet-compliant environments through three approaches:
 
 ### Approach 1: Live API Exploration (3-Phase)
 1. 🔍 **Autonomously explores** target APIs using Claude as the decision-maker
@@ -20,7 +20,7 @@ env-code-agent-2 is an **agentic coding system** that generates Fleet-compliant 
 2. 🔍 **Analyzes business constraints** in natural language → determines schema changes & application logic
 3. ⚡ **Writes production code** with business rules enforced + generates validation workflows
 
-Both approaches produce:
+All three approaches produce:
 ✅ **Fleet-compliant** output (seed.db, deterministic, backend-driven)
 
 ## Architecture
@@ -108,8 +108,8 @@ Both approaches produce:
 
 ```bash
 # Clone the repo
-git clone https://github.com/justinfleet/env-code-agent.git
-cd env-code-agent
+git clone https://github.com/justinfleet/env-code-agent-3.git
+cd env-code-agent-3
 
 # Install dependencies
 pnpm install
@@ -415,7 +415,7 @@ Generated environments follow all Fleet standards:
 ## Project Structure
 
 ```
-env-code-agent/
+env-code-agent-3/
 ├── src/
 │   ├── core/
 │   │   ├── llm_client.py         # Anthropic API wrapper
