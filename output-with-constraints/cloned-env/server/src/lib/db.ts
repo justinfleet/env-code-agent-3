@@ -22,7 +22,6 @@ if (!fs.existsSync(DATABASE_PATH)) {
   const seedPath = path.join(path.dirname(DATABASE_PATH), 'seed.db');
   if (fs.existsSync(seedPath)) {
     fs.copyFileSync(seedPath, DATABASE_PATH);
-    console.log('Copied seed.db to current.sqlite');
   }
 }
 

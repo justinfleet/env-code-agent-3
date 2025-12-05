@@ -3,31 +3,24 @@ node_modules
 .git
 .gitignore
 README.md
-.env
-.env.local
 
 # Logs and cache
 *.log
 .cache
 coverage
 
+# Environment
+.env
+.env.local
+
 # Editors
 .vscode
 .idea
 
-# Runtime SQLite files
+# Runtime SQLite
 data/current.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 
 # Meilisearch data
 data/meilisearch
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.Python
-env/
-venv/
-.venv/

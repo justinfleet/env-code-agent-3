@@ -1,199 +1,199 @@
 {
-  "api_name": "Swagger Petstore API",
+  "api_name": "Swagger Petstore - OpenAPI 3.0",
   "base_path": "/api/v3",
   "endpoints": [
     {
       "method": "PUT",
       "path": "/api/v3/pet",
-      "description": "Update an existing pet",
+      "description": "Update an existing pet by Id",
+      "auth_required": true,
       "request_body": {
-        "id": "number",
+        "id": "integer",
         "name": "string",
         "category": {
-          "id": "number",
+          "id": "integer",
           "name": "string"
         },
-        "photoUrls": "array",
-        "tags": "array",
-        "status": "string"
+        "photoUrls": "array of strings",
+        "tags": "array of tag objects",
+        "status": "string (available, pending, sold)"
       },
       "response": {
-        "id": "number",
+        "id": "integer",
         "name": "string",
         "category": "object",
         "photoUrls": "array",
         "tags": "array",
         "status": "string"
       },
-      "auth_required": true,
-      "logic": "Updates existing pet record in database, validates pet exists and user has permission"
+      "logic": "Updates existing pet record in database with provided data"
     },
     {
       "method": "POST",
       "path": "/api/v3/pet",
       "description": "Add a new pet to the store",
+      "auth_required": true,
       "request_body": {
         "name": "string",
         "category": {
-          "id": "number",
+          "id": "integer",
           "name": "string"
         },
-        "photoUrls": "array",
-        "tags": "array",
-        "status": "string"
+        "photoUrls": "array of strings",
+        "tags": "array of tag objects",
+        "status": "string (available, pending, sold)"
       },
       "response": {
-        "id": "number",
+        "id": "integer",
         "name": "string",
         "category": "object",
         "photoUrls": "array",
         "tags": "array",
         "status": "string"
       },
-      "auth_required": true,
-      "logic": "Creates new pet record, handles category and tag relationships, generates auto-increment ID"
+      "logic": "Creates new pet record in database and assigns auto-generated ID"
     },
     {
       "method": "GET",
       "path": "/api/v3/pet/findByStatus",
-      "description": "Finds pets by status",
+      "description": "Finds Pets by status",
+      "auth_required": true,
       "query_params": [
         "status"
       ],
-      "response": {
-        "pets": "array"
-      },
-      "auth_required": true,
-      "logic": "Queries pets table filtered by status field, returns array of matching pets"
+      "response": [
+        {
+          "id": "integer",
+          "name": "string",
+          "category": "object",
+          "photoUrls": "array",
+          "tags": "array",
+          "status": "string"
+        }
+      ],
+      "logic": "Queries pets table filtering by status field, returns array of matching pets"
     },
     {
       "method": "GET",
       "path": "/api/v3/pet/findByTags",
-      "description": "Finds pets by tags",
+      "description": "Finds Pets by tags",
+      "auth_required": true,
       "query_params": [
         "tags"
       ],
-      "response": {
-        "pets": "array"
-      },
-      "auth_required": true,
-      "logic": "Joins pets with pet_tags and tags tables to find pets with matching tags"
+      "response": [
+        {
+          "id": "integer",
+          "name": "string",
+          "category": "object",
+          "photoUrls": "array",
+          "tags": "array",
+          "status": "string"
+        }
+      ],
+      "logic": "Joins pets with pet_tags and tags tables to find pets matching specified tags"
     },
     {
       "method": "GET",
       "path": "/api/v3/pet/{petId}",
       "description": "Find pet by ID",
+      "auth_required": false,
       "response": {
-        "id": "number",
+        "id": "integer",
         "name": "string",
         "category": "object",
         "photoUrls": "array",
         "tags": "array",
         "status": "string"
       },
-      "logic": "Retrieves single pet by primary key with related category and tags data"
+      "logic": "Queries pets table by primary key ID, joins with categories and tags"
     },
     {
       "method": "POST",
       "path": "/api/v3/pet/{petId}",
       "description": "Updates a pet in the store with form data",
+      "auth_required": true,
       "request_body": {
         "name": "string",
         "status": "string"
       },
-      "response": {
-        "code": "number",
-        "type": "string",
-        "message": "string"
-      },
-      "auth_required": true,
-      "logic": "Updates pet name and status fields for specified pet ID"
+      "logic": "Updates specific fields of existing pet record using form data"
     },
     {
       "method": "DELETE",
       "path": "/api/v3/pet/{petId}",
       "description": "Deletes a pet",
-      "response": {
-        "code": "number",
-        "type": "string",
-        "message": "string"
-      },
       "auth_required": true,
-      "logic": "Removes pet record and associated pet_tags relationships from database"
+      "logic": "Removes pet record from database and associated relationships"
     },
     {
       "method": "POST",
       "path": "/api/v3/pet/{petId}/uploadImage",
-      "description": "Uploads an image",
+      "description": "uploads an image",
+      "auth_required": true,
       "request_body": {
         "additionalMetadata": "string",
         "file": "binary"
       },
       "response": {
-        "code": "number",
+        "code": "integer",
         "type": "string",
         "message": "string"
       },
-      "auth_required": true,
-      "logic": "Handles file upload for pet images, updates photoUrls array in pet record"
+      "logic": "Stores uploaded image file and updates pet record with photo URL"
     },
     {
       "method": "GET",
       "path": "/api/v3/store/inventory",
       "description": "Returns pet inventories by status",
-      "response": {
-        "available": "number",
-        "pending": "number",
-        "sold": "number"
-      },
       "auth_required": true,
-      "logic": "Aggregates count of pets grouped by status field"
+      "response": {
+        "available": "integer",
+        "pending": "integer",
+        "sold": "integer"
+      },
+      "logic": "Aggregates pets by status field, returns count for each status"
     },
     {
       "method": "POST",
       "path": "/api/v3/store/order",
       "description": "Place an order for a pet",
       "request_body": {
-        "petId": "number",
-        "quantity": "number",
-        "shipDate": "string",
-        "status": "string",
+        "petId": "integer",
+        "quantity": "integer",
+        "shipDate": "string (date-time)",
+        "status": "string (placed, approved, delivered)",
         "complete": "boolean"
       },
       "response": {
-        "id": "number",
-        "petId": "number",
-        "quantity": "number",
+        "id": "integer",
+        "petId": "integer",
+        "quantity": "integer",
         "shipDate": "string",
         "status": "string",
         "complete": "boolean"
       },
-      "logic": "Creates new order record with auto-increment ID, references pet via foreign key"
+      "logic": "Creates new order record in orders table with auto-generated ID"
     },
     {
       "method": "GET",
       "path": "/api/v3/store/order/{orderId}",
       "description": "Find purchase order by ID",
       "response": {
-        "id": "number",
-        "petId": "number",
-        "quantity": "number",
+        "id": "integer",
+        "petId": "integer",
+        "quantity": "integer",
         "shipDate": "string",
         "status": "string",
         "complete": "boolean"
       },
-      "logic": "Retrieves single order by primary key ID"
+      "logic": "Queries orders table by primary key ID"
     },
     {
       "method": "DELETE",
       "path": "/api/v3/store/order/{orderId}",
       "description": "Delete purchase order by ID",
-      "response": {
-        "code": "number",
-        "type": "string",
-        "message": "string"
-      },
-      "logic": "Removes order record from database by ID"
+      "logic": "Removes order record from orders table"
     },
     {
       "method": "POST",
@@ -206,28 +206,46 @@
         "email": "string",
         "password": "string",
         "phone": "string",
-        "userStatus": "number"
+        "userStatus": "integer"
       },
       "response": {
-        "code": "number",
-        "type": "string",
-        "message": "string"
+        "id": "integer",
+        "username": "string",
+        "firstName": "string",
+        "lastName": "string",
+        "email": "string",
+        "password": "string",
+        "phone": "string",
+        "userStatus": "integer"
       },
-      "logic": "Creates new user record with auto-increment ID, validates unique username and email"
+      "logic": "Creates new user record with auto-generated ID and hashed password"
     },
     {
       "method": "POST",
       "path": "/api/v3/user/createWithList",
       "description": "Creates list of users with given input array",
-      "request_body": {
-        "users": "array"
-      },
+      "request_body": [
+        {
+          "username": "string",
+          "firstName": "string",
+          "lastName": "string",
+          "email": "string",
+          "password": "string",
+          "phone": "string",
+          "userStatus": "integer"
+        }
+      ],
       "response": {
-        "code": "number",
-        "type": "string",
-        "message": "string"
+        "id": "integer",
+        "username": "string",
+        "firstName": "string",
+        "lastName": "string",
+        "email": "string",
+        "password": "string",
+        "phone": "string",
+        "userStatus": "integer"
       },
-      "logic": "Bulk insert multiple user records from array input"
+      "logic": "Batch insert multiple user records into users table"
     },
     {
       "method": "GET",
@@ -238,70 +256,52 @@
         "password"
       ],
       "response": {
-        "token": "string",
-        "expires": "string"
+        "token": "string"
       },
-      "logic": "Validates username/password against users table, generates auth token"
+      "logic": "Validates credentials against users table and generates session token"
     },
     {
       "method": "GET",
       "path": "/api/v3/user/logout",
       "description": "Logs out current logged in user session",
-      "response": {
-        "code": "number",
-        "type": "string",
-        "message": "string"
-      },
       "auth_required": true,
-      "logic": "Invalidates current user session/token"
+      "logic": "Invalidates current session token"
     },
     {
       "method": "GET",
       "path": "/api/v3/user/{username}",
       "description": "Get user by user name",
       "response": {
-        "id": "number",
+        "id": "integer",
         "username": "string",
         "firstName": "string",
         "lastName": "string",
         "email": "string",
         "password": "string",
         "phone": "string",
-        "userStatus": "number"
+        "userStatus": "integer"
       },
-      "logic": "Retrieves single user by username field"
+      "logic": "Queries users table by username field"
     },
     {
       "method": "PUT",
       "path": "/api/v3/user/{username}",
-      "description": "Updated user",
+      "description": "Update user",
       "request_body": {
         "firstName": "string",
         "lastName": "string",
         "email": "string",
         "password": "string",
         "phone": "string",
-        "userStatus": "number"
+        "userStatus": "integer"
       },
-      "response": {
-        "code": "number",
-        "type": "string",
-        "message": "string"
-      },
-      "auth_required": true,
-      "logic": "Updates user record fields for specified username"
+      "logic": "Updates existing user record identified by username"
     },
     {
       "method": "DELETE",
       "path": "/api/v3/user/{username}",
       "description": "Delete user",
-      "response": {
-        "code": "number",
-        "type": "string",
-        "message": "string"
-      },
-      "auth_required": true,
-      "logic": "Removes user record from database by username"
+      "logic": "Removes user record from users table"
     }
   ],
   "database": {
@@ -333,6 +333,16 @@
             "name": "status",
             "type": "TEXT",
             "constraints": "CHECK (status IN ('available', 'pending', 'sold'))"
+          },
+          {
+            "name": "created_at",
+            "type": "TEXT",
+            "constraints": "DEFAULT CURRENT_TIMESTAMP"
+          },
+          {
+            "name": "updated_at",
+            "type": "TEXT",
+            "constraints": "DEFAULT CURRENT_TIMESTAMP"
           }
         ]
       },
@@ -347,7 +357,7 @@
           {
             "name": "name",
             "type": "TEXT",
-            "constraints": "NOT NULL"
+            "constraints": "NOT NULL UNIQUE"
           }
         ]
       },
@@ -362,7 +372,7 @@
           {
             "name": "name",
             "type": "TEXT",
-            "constraints": "NOT NULL"
+            "constraints": "NOT NULL UNIQUE"
           }
         ]
       },
@@ -402,7 +412,7 @@
           {
             "name": "quantity",
             "type": "INTEGER",
-            "constraints": "DEFAULT 1"
+            "constraints": "NOT NULL DEFAULT 1"
           },
           {
             "name": "ship_date",
@@ -412,12 +422,17 @@
           {
             "name": "status",
             "type": "TEXT",
-            "constraints": "CHECK (status IN ('placed', 'approved', 'delivered'))"
+            "constraints": "CHECK (status IN ('placed', 'approved', 'delivered')) DEFAULT 'placed'"
           },
           {
             "name": "complete",
             "type": "INTEGER",
-            "constraints": "DEFAULT 0 CHECK (complete IN (0, 1))"
+            "constraints": "DEFAULT 0"
+          },
+          {
+            "name": "created_at",
+            "type": "TEXT",
+            "constraints": "DEFAULT CURRENT_TIMESTAMP"
           },
           {
             "name": "user_id",
@@ -453,7 +468,7 @@
           {
             "name": "email",
             "type": "TEXT",
-            "constraints": "UNIQUE"
+            "constraints": ""
           },
           {
             "name": "password",
@@ -469,6 +484,11 @@
             "name": "user_status",
             "type": "INTEGER",
             "constraints": "DEFAULT 0"
+          },
+          {
+            "name": "created_at",
+            "type": "TEXT",
+            "constraints": "DEFAULT CURRENT_TIMESTAMP"
           },
           {
             "name": "role",
@@ -488,7 +508,7 @@
             "name": "role",
             "type": "TEXT",
             "default": "customer",
-            "reason": "Required for role-based access control. Values: guest, customer, store_owner, admin"
+            "reason": "Role-based access control system - guest, customer, store_owner, admin"
           }
         ]
       },
@@ -498,8 +518,8 @@
             "name": "user_id",
             "type": "INTEGER",
             "foreign_key": "users.id",
-            "not_null": true,
-            "reason": "Required to track order ownership and enforce customer access controls"
+            "nullable": false,
+            "reason": "Track order ownership for access control and business rules"
           }
         ]
       }
@@ -517,8 +537,8 @@
       "password_hashing": "bcrypt",
       "login_endpoint": "GET /api/v3/user/login",
       "register_endpoint": "POST /api/v3/user",
-      "logout_endpoint": "GET /api/v3/user/logout",
-      "auth_required_for_writes": true
+      "auth_required_for": "write_operations",
+      "auth_header": "Authorization: Bearer <token>"
     },
     "roles": {
       "guest": {
@@ -526,16 +546,19 @@
         "permissions": [
           "browse_pets",
           "view_inventory",
+          "find_pets_by_status",
+          "find_pets_by_tags",
           "view_pet_details"
         ]
       },
       "customer": {
-        "description": "Registered user who can place orders",
+        "description": "Registered user who can purchase pets",
         "permissions": [
           "place_orders",
           "view_own_orders",
           "cancel_own_placed_orders",
-          "manage_own_profile",
+          "view_own_profile",
+          "edit_own_profile",
           "browse_pets",
           "view_inventory"
         ]
@@ -544,21 +567,22 @@
         "description": "Store employee who manages pets and orders",
         "permissions": [
           "manage_pets",
-          "view_all_orders",
           "approve_orders",
-          "deliver_orders",
-          "all_customer_permissions"
+          "mark_orders_delivered",
+          "view_all_orders",
+          "upload_pet_images",
+          "view_all_users"
         ]
       },
       "admin": {
         "description": "System administrator with full access",
         "permissions": [
-          "all",
-          "manage_users",
+          "all_operations",
           "delete_users",
           "change_user_roles",
           "relist_sold_pets",
-          "reverse_pet_status_transitions"
+          "manage_users",
+          "override_ownership_checks"
         ]
       }
     },
@@ -581,23 +605,10 @@
           "store_owner",
           "admin"
         ],
+        "reason": "Only store_owner or admin can edit pets",
         "special_checks": [
-          "admin_required_for_sold_to_available_transition"
-        ],
-        "reason": "Only store_owner or admin can edit pets, admin required for status reversals"
-      },
-      {
-        "method": "POST",
-        "path": "/api/v3/pet/{petId}",
-        "auth_required": true,
-        "allowed_roles": [
-          "store_owner",
-          "admin"
-        ],
-        "special_checks": [
-          "admin_required_for_sold_to_available_transition"
-        ],
-        "reason": "Only store_owner or admin can update pets"
+          "admin_only_for_sold_to_available_transition"
+        ]
       },
       {
         "method": "DELETE",
@@ -608,6 +619,26 @@
           "admin"
         ],
         "reason": "Only store_owner or admin can delete pets"
+      },
+      {
+        "method": "POST",
+        "path": "/api/v3/pet/{petId}",
+        "auth_required": true,
+        "allowed_roles": [
+          "store_owner",
+          "admin"
+        ],
+        "reason": "Only store_owner or admin can update pets with form data"
+      },
+      {
+        "method": "POST",
+        "path": "/api/v3/pet/{petId}/uploadImage",
+        "auth_required": true,
+        "allowed_roles": [
+          "store_owner",
+          "admin"
+        ],
+        "reason": "Only store_owner or admin can upload pet images"
       },
       {
         "method": "POST",
@@ -673,9 +704,9 @@
           ]
         },
         "special_checks": [
-          "admin_required_for_role_changes"
+          "admin_only_for_role_changes"
         ],
-        "reason": "Users can only edit their own profile, admin required for role changes"
+        "reason": "Users can only edit their own profile, only admin can change roles"
       },
       {
         "method": "DELETE",
@@ -699,7 +730,8 @@
           "value": "pending"
         },
         "condition": "pet.status == 'available'",
-        "reason": "Placing an order changes pet status to pending"
+        "reason": "Placing an order changes pet status to pending",
+        "atomic": true
       },
       {
         "trigger": {
@@ -712,7 +744,8 @@
           "field": "status",
           "value": "available"
         },
-        "reason": "Cancelling a placed order returns pet to available status"
+        "reason": "Cancelling a placed order returns pet to available status",
+        "atomic": true
       },
       {
         "trigger": {
@@ -725,7 +758,8 @@
           "field": "status",
           "value": "sold"
         },
-        "reason": "Delivering order marks pet as sold"
+        "reason": "Delivering an order marks pet as sold",
+        "atomic": true
       }
     ],
     "validation_rules": [
@@ -743,12 +777,6 @@
             "check": "value == 1",
             "error": "Quantity must be 1 for live animals",
             "status_code": 400
-          },
-          {
-            "field": "petId",
-            "check": "no existing active orders for this pet",
-            "error": "Pet already has an active order",
-            "status_code": 400
           }
         ]
       },
@@ -757,20 +785,9 @@
         "validations": [
           {
             "field": "status",
-            "check": "valid_status_transition(current_status, new_status, user_role)",
-            "error": "Invalid status transition. Admin required to change sold pets back to available.",
-            "status_code": 400
-          }
-        ]
-      },
-      {
-        "endpoint": "POST /api/v3/pet/{petId}",
-        "validations": [
-          {
-            "field": "status",
-            "check": "valid_status_transition(current_status, new_status, user_role)",
-            "error": "Invalid status transition. Admin required to change sold pets back to available.",
-            "status_code": 400
+            "check": "if changing from 'sold' to 'available' then user.role == 'admin'",
+            "error": "Only admin can relist sold pets",
+            "status_code": 403
           }
         ]
       },
@@ -780,8 +797,19 @@
           {
             "field": "status",
             "check": "order.status == 'placed'",
-            "error": "Cannot cancel order that has been approved or delivered",
+            "error": "Can only cancel orders with 'placed' status",
             "status_code": 400
+          }
+        ]
+      },
+      {
+        "endpoint": "PUT /api/v3/user/{username}",
+        "validations": [
+          {
+            "field": "role",
+            "check": "if role field is being changed then user.role == 'admin'",
+            "error": "Only admin can change user roles",
+            "status_code": 403
           }
         ]
       }
@@ -808,17 +836,6 @@
             "status_code": 400
           }
         ]
-      },
-      {
-        "endpoint": "PUT /api/v3/store/order/{orderId}",
-        "checks": [
-          {
-            "query": "SELECT status FROM orders WHERE id = ?",
-            "condition": "status != 'delivered'",
-            "error": "Cannot modify delivered orders",
-            "status_code": 400
-          }
-        ]
       }
     ]
   },
@@ -835,8 +852,8 @@
     "password_hashing": "bcrypt",
     "login_endpoint": "GET /api/v3/user/login",
     "register_endpoint": "POST /api/v3/user",
-    "logout_endpoint": "GET /api/v3/user/logout",
-    "auth_required_for_writes": true
+    "auth_required_for": "write_operations",
+    "auth_header": "Authorization: Bearer <token>"
   },
   "roles": {
     "guest": {
@@ -844,16 +861,19 @@
       "permissions": [
         "browse_pets",
         "view_inventory",
+        "find_pets_by_status",
+        "find_pets_by_tags",
         "view_pet_details"
       ]
     },
     "customer": {
-      "description": "Registered user who can place orders",
+      "description": "Registered user who can purchase pets",
       "permissions": [
         "place_orders",
         "view_own_orders",
         "cancel_own_placed_orders",
-        "manage_own_profile",
+        "view_own_profile",
+        "edit_own_profile",
         "browse_pets",
         "view_inventory"
       ]
@@ -862,21 +882,22 @@
       "description": "Store employee who manages pets and orders",
       "permissions": [
         "manage_pets",
-        "view_all_orders",
         "approve_orders",
-        "deliver_orders",
-        "all_customer_permissions"
+        "mark_orders_delivered",
+        "view_all_orders",
+        "upload_pet_images",
+        "view_all_users"
       ]
     },
     "admin": {
       "description": "System administrator with full access",
       "permissions": [
-        "all",
-        "manage_users",
+        "all_operations",
         "delete_users",
         "change_user_roles",
         "relist_sold_pets",
-        "reverse_pet_status_transitions"
+        "manage_users",
+        "override_ownership_checks"
       ]
     }
   },
@@ -899,23 +920,10 @@
         "store_owner",
         "admin"
       ],
+      "reason": "Only store_owner or admin can edit pets",
       "special_checks": [
-        "admin_required_for_sold_to_available_transition"
-      ],
-      "reason": "Only store_owner or admin can edit pets, admin required for status reversals"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v3/pet/{petId}",
-      "auth_required": true,
-      "allowed_roles": [
-        "store_owner",
-        "admin"
-      ],
-      "special_checks": [
-        "admin_required_for_sold_to_available_transition"
-      ],
-      "reason": "Only store_owner or admin can update pets"
+        "admin_only_for_sold_to_available_transition"
+      ]
     },
     {
       "method": "DELETE",
@@ -926,6 +934,26 @@
         "admin"
       ],
       "reason": "Only store_owner or admin can delete pets"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/pet/{petId}",
+      "auth_required": true,
+      "allowed_roles": [
+        "store_owner",
+        "admin"
+      ],
+      "reason": "Only store_owner or admin can update pets with form data"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v3/pet/{petId}/uploadImage",
+      "auth_required": true,
+      "allowed_roles": [
+        "store_owner",
+        "admin"
+      ],
+      "reason": "Only store_owner or admin can upload pet images"
     },
     {
       "method": "POST",
@@ -991,9 +1019,9 @@
         ]
       },
       "special_checks": [
-        "admin_required_for_role_changes"
+        "admin_only_for_role_changes"
       ],
-      "reason": "Users can only edit their own profile, admin required for role changes"
+      "reason": "Users can only edit their own profile, only admin can change roles"
     },
     {
       "method": "DELETE",
@@ -1017,7 +1045,8 @@
         "value": "pending"
       },
       "condition": "pet.status == 'available'",
-      "reason": "Placing an order changes pet status to pending"
+      "reason": "Placing an order changes pet status to pending",
+      "atomic": true
     },
     {
       "trigger": {
@@ -1030,7 +1059,8 @@
         "field": "status",
         "value": "available"
       },
-      "reason": "Cancelling a placed order returns pet to available status"
+      "reason": "Cancelling a placed order returns pet to available status",
+      "atomic": true
     },
     {
       "trigger": {
@@ -1043,7 +1073,8 @@
         "field": "status",
         "value": "sold"
       },
-      "reason": "Delivering order marks pet as sold"
+      "reason": "Delivering an order marks pet as sold",
+      "atomic": true
     }
   ],
   "validation_rules": [
@@ -1061,12 +1092,6 @@
           "check": "value == 1",
           "error": "Quantity must be 1 for live animals",
           "status_code": 400
-        },
-        {
-          "field": "petId",
-          "check": "no existing active orders for this pet",
-          "error": "Pet already has an active order",
-          "status_code": 400
         }
       ]
     },
@@ -1075,20 +1100,9 @@
       "validations": [
         {
           "field": "status",
-          "check": "valid_status_transition(current_status, new_status, user_role)",
-          "error": "Invalid status transition. Admin required to change sold pets back to available.",
-          "status_code": 400
-        }
-      ]
-    },
-    {
-      "endpoint": "POST /api/v3/pet/{petId}",
-      "validations": [
-        {
-          "field": "status",
-          "check": "valid_status_transition(current_status, new_status, user_role)",
-          "error": "Invalid status transition. Admin required to change sold pets back to available.",
-          "status_code": 400
+          "check": "if changing from 'sold' to 'available' then user.role == 'admin'",
+          "error": "Only admin can relist sold pets",
+          "status_code": 403
         }
       ]
     },
@@ -1098,8 +1112,19 @@
         {
           "field": "status",
           "check": "order.status == 'placed'",
-          "error": "Cannot cancel order that has been approved or delivered",
+          "error": "Can only cancel orders with 'placed' status",
           "status_code": 400
+        }
+      ]
+    },
+    {
+      "endpoint": "PUT /api/v3/user/{username}",
+      "validations": [
+        {
+          "field": "role",
+          "check": "if role field is being changed then user.role == 'admin'",
+          "error": "Only admin can change user roles",
+          "status_code": 403
         }
       ]
     }
@@ -1126,28 +1151,17 @@
           "status_code": 400
         }
       ]
-    },
-    {
-      "endpoint": "PUT /api/v3/store/order/{orderId}",
-      "checks": [
-        {
-          "query": "SELECT status FROM orders WHERE id = ?",
-          "condition": "status != 'delivered'",
-          "error": "Cannot modify delivered orders",
-          "status_code": 400
-        }
-      ]
     }
   ],
   "workflows": [
     {
       "name": "customer_successful_purchase_flow",
-      "description": "Happy path: Customer logs in, browses pets, places order for available pet",
+      "description": "Complete happy path: customer logs in, finds available pet, places order successfully",
       "category": "happy_path",
       "steps": [
         {
           "action": "GET /api/v3/user/login",
-          "description": "Customer logs in",
+          "description": "Login as customer",
           "query": {
             "username": "{{customer_username}}",
             "password": "{{test_password}}"
@@ -1155,24 +1169,23 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:customer_token}}"
+              "sessionToken": "{{save:customer_token}}"
             }
           }
         },
         {
           "action": "GET /api/v3/pet/{{available_pet_id}}",
-          "description": "Customer views available pet",
+          "description": "Verify pet is available",
           "expect": {
             "status": 200,
             "body_contains": {
-              "id": "{{available_pet_id}}",
               "status": "available"
             }
           }
         },
         {
           "action": "POST /api/v3/store/order",
-          "description": "Customer places order for available pet",
+          "description": "Place order for available pet",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
@@ -1184,10 +1197,8 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "petId": "{{available_pet_id}}",
-              "quantity": 1,
-              "status": "placed",
-              "id": "{{save:order_id}}"
+              "id": "{{save:order_id}}",
+              "status": "placed"
             }
           }
         },
@@ -1205,12 +1216,12 @@
     },
     {
       "name": "store_owner_order_approval_flow",
-      "description": "Happy path: Store owner approves and delivers customer order",
+      "description": "Store owner approves and delivers an order, pet becomes sold",
       "category": "happy_path",
       "steps": [
         {
           "action": "GET /api/v3/user/login",
-          "description": "Store owner logs in",
+          "description": "Login as store owner",
           "query": {
             "username": "{{store_owner_username}}",
             "password": "{{test_password}}"
@@ -1218,13 +1229,13 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:store_owner_token}}"
+              "sessionToken": "{{save:store_owner_token}}"
             }
           }
         },
         {
           "action": "GET /api/v3/user/login",
-          "description": "Customer logs in to place order",
+          "description": "Login as customer first to create order",
           "query": {
             "username": "{{customer_username}}",
             "password": "{{test_password}}"
@@ -1232,7 +1243,7 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:customer_token}}"
+              "sessionToken": "{{save:customer_token}}"
             }
           }
         },
@@ -1255,112 +1266,45 @@
           }
         },
         {
-          "action": "PUT /api/v3/store/order/{{order_id}}",
-          "description": "Store owner approves order",
+          "action": "GET /api/v3/store/order/{{order_id}}",
+          "description": "Store owner views the order",
           "headers": {
             "Authorization": "Bearer {{store_owner_token}}"
           },
-          "body": {
-            "status": "approved"
-          },
           "expect": {
             "status": 200,
             "body_contains": {
-              "status": "approved"
-            }
-          }
-        },
-        {
-          "action": "PUT /api/v3/store/order/{{order_id}}",
-          "description": "Store owner marks order as delivered",
-          "headers": {
-            "Authorization": "Bearer {{store_owner_token}}"
-          },
-          "body": {
-            "status": "delivered"
-          },
-          "expect": {
-            "status": 200,
-            "body_contains": {
-              "status": "delivered"
-            }
-          }
-        },
-        {
-          "action": "GET /api/v3/pet/{{available_pet_id}}",
-          "description": "Verify pet status changed to sold",
-          "expect": {
-            "status": 200,
-            "body_contains": {
-              "status": "sold"
+              "status": "placed"
             }
           }
         }
       ]
     },
     {
-      "name": "admin_pet_management_flow",
-      "description": "Happy path: Admin creates pet, manages inventory, and re-lists sold pet",
+      "name": "guest_browse_pets_successfully",
+      "description": "Guest user can browse pets and inventory without authentication",
       "category": "happy_path",
       "steps": [
         {
-          "action": "GET /api/v3/user/login",
-          "description": "Admin logs in",
+          "action": "GET /api/v3/pet/findByStatus",
+          "description": "Guest browses available pets",
           "query": {
-            "username": "{{admin_username}}",
-            "password": "{{test_password}}"
+            "status": "available"
           },
           "expect": {
-            "status": 200,
-            "body_contains": {
-              "token": "{{save:admin_token}}"
-            }
+            "status": 200
           }
         },
         {
-          "action": "POST /api/v3/pet",
-          "description": "Admin creates new pet",
-          "headers": {
-            "Authorization": "Bearer {{admin_token}}"
-          },
-          "body": {
-            "name": "Test Dog",
-            "status": "available",
-            "category": {
-              "id": 1,
-              "name": "Dogs"
-            },
-            "photoUrls": [
-              "https://example.com/dog.jpg"
-            ]
-          },
+          "action": "GET /api/v3/store/inventory",
+          "description": "Guest views store inventory",
           "expect": {
-            "status": 200,
-            "body_contains": {
-              "name": "Test Dog",
-              "status": "available",
-              "id": "{{save:new_pet_id}}"
-            }
+            "status": 200
           }
         },
         {
-          "action": "PUT /api/v3/pet",
-          "description": "Admin changes sold pet back to available",
-          "headers": {
-            "Authorization": "Bearer {{admin_token}}"
-          },
-          "body": {
-            "id": "{{sold_pet_id}}",
-            "name": "Previously Sold Pet",
-            "status": "available",
-            "category": {
-              "id": 1,
-              "name": "Dogs"
-            },
-            "photoUrls": [
-              "https://example.com/dog.jpg"
-            ]
-          },
+          "action": "GET /api/v3/pet/{{available_pet_id}}",
+          "description": "Guest views pet details",
           "expect": {
             "status": 200,
             "body_contains": {
@@ -1372,12 +1316,12 @@
     },
     {
       "name": "customer_cannot_manage_pets",
-      "description": "Authorization test: Customer cannot create, update, or delete pets",
+      "description": "Customers are forbidden from adding, editing, or deleting pets",
       "category": "authorization",
       "steps": [
         {
           "action": "GET /api/v3/user/login",
-          "description": "Customer logs in",
+          "description": "Login as customer",
           "query": {
             "username": "{{customer_username}}",
             "password": "{{test_password}}"
@@ -1385,26 +1329,22 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:customer_token}}"
+              "sessionToken": "{{save:customer_token}}"
             }
           }
         },
         {
           "action": "POST /api/v3/pet",
-          "description": "Customer attempts to create pet (should fail)",
+          "description": "Customer tries to add pet - should be forbidden",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
           "body": {
-            "name": "Unauthorized Pet",
-            "status": "available",
+            "name": "Fluffy",
             "category": {
-              "id": 1,
-              "name": "Dogs"
+              "name": "Cat"
             },
-            "photoUrls": [
-              "https://example.com/dog.jpg"
-            ]
+            "status": "available"
           },
           "expect": {
             "status": 403
@@ -1412,21 +1352,14 @@
         },
         {
           "action": "PUT /api/v3/pet",
-          "description": "Customer attempts to update pet (should fail)",
+          "description": "Customer tries to edit pet - should be forbidden",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
           "body": {
             "id": "{{available_pet_id}}",
-            "name": "Updated Pet Name",
-            "status": "available",
-            "category": {
-              "id": 1,
-              "name": "Dogs"
-            },
-            "photoUrls": [
-              "https://example.com/dog.jpg"
-            ]
+            "name": "Updated Name",
+            "status": "available"
           },
           "expect": {
             "status": 403
@@ -1434,7 +1367,7 @@
         },
         {
           "action": "DELETE /api/v3/pet/{{available_pet_id}}",
-          "description": "Customer attempts to delete pet (should fail)",
+          "description": "Customer tries to delete pet - should be forbidden",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
@@ -1446,12 +1379,12 @@
     },
     {
       "name": "guest_cannot_place_orders",
-      "description": "Authorization test: Unauthenticated users cannot place orders",
+      "description": "Unauthenticated users cannot access write operations like placing orders",
       "category": "authorization",
       "steps": [
         {
           "action": "POST /api/v3/store/order",
-          "description": "Guest attempts to place order without authentication",
+          "description": "Guest tries to place order without authentication",
           "body": {
             "petId": "{{available_pet_id}}",
             "quantity": 1,
@@ -1462,32 +1395,26 @@
           }
         },
         {
-          "action": "GET /api/v3/pet/{{available_pet_id}}",
-          "description": "Guest can view pet details (allowed)",
+          "action": "POST /api/v3/user",
+          "description": "Guest tries to create user without authentication",
+          "body": {
+            "username": "newuser",
+            "email": "test@example.com"
+          },
           "expect": {
-            "status": 200,
-            "body_contains": {
-              "id": "{{available_pet_id}}"
-            }
-          }
-        },
-        {
-          "action": "GET /api/v3/store/inventory",
-          "description": "Guest can view inventory (allowed)",
-          "expect": {
-            "status": 200
+            "status": 401
           }
         }
       ]
     },
     {
-      "name": "customer_ownership_restrictions",
-      "description": "Authorization test: Customers can only view their own orders",
+      "name": "customer_ownership_check_orders",
+      "description": "Customers can only view and cancel their own orders, not others'",
       "category": "authorization",
       "steps": [
         {
           "action": "GET /api/v3/user/login",
-          "description": "First customer logs in",
+          "description": "Login as first customer",
           "query": {
             "username": "{{customer_username}}",
             "password": "{{test_password}}"
@@ -1495,7 +1422,7 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:customer1_token}}"
+              "sessionToken": "{{save:customer1_token}}"
             }
           }
         },
@@ -1519,7 +1446,7 @@
         },
         {
           "action": "GET /api/v3/user/login",
-          "description": "Second customer logs in",
+          "description": "Login as different customer",
           "query": {
             "username": "customer2",
             "password": "{{test_password}}"
@@ -1527,13 +1454,13 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:customer2_token}}"
+              "sessionToken": "{{save:customer2_token}}"
             }
           }
         },
         {
           "action": "GET /api/v3/store/order/{{customer1_order_id}}",
-          "description": "Second customer attempts to view first customer's order (should fail)",
+          "description": "Second customer tries to view first customer's order - should be forbidden",
           "headers": {
             "Authorization": "Bearer {{customer2_token}}"
           },
@@ -1542,28 +1469,25 @@
           }
         },
         {
-          "action": "GET /api/v3/store/order/{{customer1_order_id}}",
-          "description": "First customer can view own order",
+          "action": "DELETE /api/v3/store/order/{{customer1_order_id}}",
+          "description": "Second customer tries to cancel first customer's order - should be forbidden",
           "headers": {
-            "Authorization": "Bearer {{customer1_token}}"
+            "Authorization": "Bearer {{customer2_token}}"
           },
           "expect": {
-            "status": 200,
-            "body_contains": {
-              "id": "{{customer1_order_id}}"
-            }
+            "status": 403
           }
         }
       ]
     },
     {
-      "name": "cannot_order_unavailable_pet",
-      "description": "Validation test: Cannot order pets that are not available",
-      "category": "validation",
+      "name": "user_profile_ownership_check",
+      "description": "Users can only view and edit their own profile, not others'",
+      "category": "authorization",
       "steps": [
         {
           "action": "GET /api/v3/user/login",
-          "description": "Customer logs in",
+          "description": "Login as customer",
           "query": {
             "username": "{{customer_username}}",
             "password": "{{test_password}}"
@@ -1571,13 +1495,68 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:customer_token}}"
+              "sessionToken": "{{save:customer_token}}"
+            }
+          }
+        },
+        {
+          "action": "GET /api/v3/user/{{store_owner_username}}",
+          "description": "Customer tries to view store owner profile - should be forbidden",
+          "headers": {
+            "Authorization": "Bearer {{customer_token}}"
+          },
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "PUT /api/v3/user/{{store_owner_username}}",
+          "description": "Customer tries to edit store owner profile - should be forbidden",
+          "headers": {
+            "Authorization": "Bearer {{customer_token}}"
+          },
+          "body": {
+            "firstName": "Hacker",
+            "email": "hacker@evil.com"
+          },
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "GET /api/v3/user/{{customer_username}}",
+          "description": "Customer can view own profile",
+          "headers": {
+            "Authorization": "Bearer {{customer_token}}"
+          },
+          "expect": {
+            "status": 200
+          }
+        }
+      ]
+    },
+    {
+      "name": "cannot_order_unavailable_pet",
+      "description": "Validation prevents ordering pets that are not available",
+      "category": "validation",
+      "steps": [
+        {
+          "action": "GET /api/v3/user/login",
+          "description": "Login as customer",
+          "query": {
+            "username": "{{customer_username}}",
+            "password": "{{test_password}}"
+          },
+          "expect": {
+            "status": 200,
+            "body_contains": {
+              "sessionToken": "{{save:customer_token}}"
             }
           }
         },
         {
           "action": "POST /api/v3/store/order",
-          "description": "Attempt to order pending pet (should fail)",
+          "description": "Try to order pending pet - should fail",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
@@ -1595,7 +1574,7 @@
         },
         {
           "action": "POST /api/v3/store/order",
-          "description": "Attempt to order sold pet (should fail)",
+          "description": "Try to order sold pet - should fail",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
@@ -1615,12 +1594,12 @@
     },
     {
       "name": "quantity_must_be_one",
-      "description": "Validation test: Order quantity must be exactly 1 for live animals",
+      "description": "Order quantity must be exactly 1 for live animals",
       "category": "validation",
       "steps": [
         {
           "action": "GET /api/v3/user/login",
-          "description": "Customer logs in",
+          "description": "Login as customer",
           "query": {
             "username": "{{customer_username}}",
             "password": "{{test_password}}"
@@ -1628,31 +1607,13 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:customer_token}}"
+              "sessionToken": "{{save:customer_token}}"
             }
           }
         },
         {
           "action": "POST /api/v3/store/order",
-          "description": "Attempt to order multiple pets (should fail)",
-          "headers": {
-            "Authorization": "Bearer {{customer_token}}"
-          },
-          "body": {
-            "petId": "{{available_pet_id}}",
-            "quantity": 2,
-            "status": "placed"
-          },
-          "expect": {
-            "status": 400,
-            "body_contains": {
-              "message": "Quantity must be 1 for live animals"
-            }
-          }
-        },
-        {
-          "action": "POST /api/v3/store/order",
-          "description": "Attempt to order zero pets (should fail)",
+          "description": "Try to order with quantity 0 - should fail",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
@@ -1667,31 +1628,35 @@
               "message": "Quantity must be 1 for live animals"
             }
           }
+        },
+        {
+          "action": "POST /api/v3/store/order",
+          "description": "Try to order with quantity 2 - should fail",
+          "headers": {
+            "Authorization": "Bearer {{customer_token}}"
+          },
+          "body": {
+            "petId": "{{available_pet_id}}",
+            "quantity": 2,
+            "status": "placed"
+          },
+          "expect": {
+            "status": 400,
+            "body_contains": {
+              "message": "Quantity must be 1 for live animals"
+            }
+          }
         }
       ]
     },
     {
-      "name": "pet_status_transitions_on_order_lifecycle",
-      "description": "State transition test: Pet status changes through order lifecycle",
-      "category": "state_transition",
+      "name": "only_admin_can_relist_sold_pets",
+      "description": "Only admin role can change pet status from sold back to available",
+      "category": "validation",
       "steps": [
         {
           "action": "GET /api/v3/user/login",
-          "description": "Customer logs in",
-          "query": {
-            "username": "{{customer_username}}",
-            "password": "{{test_password}}"
-          },
-          "expect": {
-            "status": 200,
-            "body_contains": {
-              "token": "{{save:customer_token}}"
-            }
-          }
-        },
-        {
-          "action": "GET /api/v3/user/login",
-          "description": "Store owner logs in",
+          "description": "Login as store owner",
           "query": {
             "username": "{{store_owner_username}}",
             "password": "{{test_password}}"
@@ -1699,13 +1664,84 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:store_owner_token}}"
+              "sessionToken": "{{save:store_owner_token}}"
+            }
+          }
+        },
+        {
+          "action": "PUT /api/v3/pet",
+          "description": "Store owner tries to relist sold pet - should fail",
+          "headers": {
+            "Authorization": "Bearer {{store_owner_token}}"
+          },
+          "body": {
+            "id": "{{sold_pet_id}}",
+            "name": "Relisted Pet",
+            "status": "available"
+          },
+          "expect": {
+            "status": 403,
+            "body_contains": {
+              "message": "Only admin can relist sold pets"
+            }
+          }
+        },
+        {
+          "action": "GET /api/v3/user/login",
+          "description": "Login as admin",
+          "query": {
+            "username": "{{admin_username}}",
+            "password": "{{test_password}}"
+          },
+          "expect": {
+            "status": 200,
+            "body_contains": {
+              "sessionToken": "{{save:admin_token}}"
+            }
+          }
+        },
+        {
+          "action": "PUT /api/v3/pet",
+          "description": "Admin can relist sold pet - should succeed",
+          "headers": {
+            "Authorization": "Bearer {{admin_token}}"
+          },
+          "body": {
+            "id": "{{sold_pet_id}}",
+            "name": "Relisted Pet",
+            "status": "available"
+          },
+          "expect": {
+            "status": 200,
+            "body_contains": {
+              "status": "available"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "order_creation_changes_pet_to_pending",
+      "description": "When order is placed, pet status automatically changes to pending",
+      "category": "state_transition",
+      "steps": [
+        {
+          "action": "GET /api/v3/user/login",
+          "description": "Login as customer",
+          "query": {
+            "username": "{{customer_username}}",
+            "password": "{{test_password}}"
+          },
+          "expect": {
+            "status": 200,
+            "body_contains": {
+              "sessionToken": "{{save:customer_token}}"
             }
           }
         },
         {
           "action": "GET /api/v3/pet/{{available_pet_id}}",
-          "description": "Verify pet is initially available",
+          "description": "Verify pet starts as available",
           "expect": {
             "status": 200,
             "body_contains": {
@@ -1715,7 +1751,7 @@
         },
         {
           "action": "POST /api/v3/store/order",
-          "description": "Customer places order",
+          "description": "Place order for available pet",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
@@ -1733,34 +1769,11 @@
         },
         {
           "action": "GET /api/v3/pet/{{available_pet_id}}",
-          "description": "Verify pet status changed to pending after order",
+          "description": "Verify pet status changed to pending",
           "expect": {
             "status": 200,
             "body_contains": {
               "status": "pending"
-            }
-          }
-        },
-        {
-          "action": "PUT /api/v3/store/order/{{order_id}}",
-          "description": "Store owner delivers order",
-          "headers": {
-            "Authorization": "Bearer {{store_owner_token}}"
-          },
-          "body": {
-            "status": "delivered"
-          },
-          "expect": {
-            "status": 200
-          }
-        },
-        {
-          "action": "GET /api/v3/pet/{{available_pet_id}}",
-          "description": "Verify pet status changed to sold after delivery",
-          "expect": {
-            "status": 200,
-            "body_contains": {
-              "status": "sold"
             }
           }
         }
@@ -1768,12 +1781,12 @@
     },
     {
       "name": "order_cancellation_returns_pet_to_available",
-      "description": "State transition test: Cancelled orders return pets to available status",
+      "description": "When placed order is cancelled, pet status returns to available",
       "category": "state_transition",
       "steps": [
         {
           "action": "GET /api/v3/user/login",
-          "description": "Customer logs in",
+          "description": "Login as customer",
           "query": {
             "username": "{{customer_username}}",
             "password": "{{test_password}}"
@@ -1781,13 +1794,13 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:customer_token}}"
+              "sessionToken": "{{save:customer_token}}"
             }
           }
         },
         {
           "action": "POST /api/v3/store/order",
-          "description": "Customer places order",
+          "description": "Place order for available pet",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
@@ -1805,7 +1818,7 @@
         },
         {
           "action": "GET /api/v3/pet/{{available_pet_id}}",
-          "description": "Verify pet is pending",
+          "description": "Verify pet is pending after order",
           "expect": {
             "status": 200,
             "body_contains": {
@@ -1815,7 +1828,7 @@
         },
         {
           "action": "DELETE /api/v3/store/order/{{order_id}}",
-          "description": "Customer cancels order",
+          "description": "Customer cancels their placed order",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
@@ -1825,7 +1838,7 @@
         },
         {
           "action": "GET /api/v3/pet/{{available_pet_id}}",
-          "description": "Verify pet returned to available after cancellation",
+          "description": "Verify pet status returned to available",
           "expect": {
             "status": 200,
             "body_contains": {
@@ -1837,12 +1850,12 @@
     },
     {
       "name": "cannot_delete_pet_with_active_orders",
-      "description": "Pre-condition test: Cannot delete pets that have active orders",
+      "description": "Pre-condition check prevents deleting pets that have active orders",
       "category": "error_handling",
       "steps": [
         {
           "action": "GET /api/v3/user/login",
-          "description": "Customer logs in",
+          "description": "Login as customer",
           "query": {
             "username": "{{customer_username}}",
             "password": "{{test_password}}"
@@ -1850,27 +1863,13 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:customer_token}}"
-            }
-          }
-        },
-        {
-          "action": "GET /api/v3/user/login",
-          "description": "Store owner logs in",
-          "query": {
-            "username": "{{store_owner_username}}",
-            "password": "{{test_password}}"
-          },
-          "expect": {
-            "status": 200,
-            "body_contains": {
-              "token": "{{save:store_owner_token}}"
+              "sessionToken": "{{save:customer_token}}"
             }
           }
         },
         {
           "action": "POST /api/v3/store/order",
-          "description": "Customer places order for pet",
+          "description": "Place order to make pet have active order",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
@@ -1887,8 +1886,22 @@
           }
         },
         {
+          "action": "GET /api/v3/user/login",
+          "description": "Login as store owner",
+          "query": {
+            "username": "{{store_owner_username}}",
+            "password": "{{test_password}}"
+          },
+          "expect": {
+            "status": 200,
+            "body_contains": {
+              "sessionToken": "{{save:store_owner_token}}"
+            }
+          }
+        },
+        {
           "action": "DELETE /api/v3/pet/{{available_pet_id}}",
-          "description": "Attempt to delete pet with active order (should fail)",
+          "description": "Store owner tries to delete pet with active order - should fail",
           "headers": {
             "Authorization": "Bearer {{store_owner_token}}"
           },
@@ -1902,59 +1915,13 @@
       ]
     },
     {
-      "name": "store_owner_cannot_relist_sold_pets",
-      "description": "Authorization test: Only admin can change sold pets back to available",
-      "category": "authorization",
-      "steps": [
-        {
-          "action": "GET /api/v3/user/login",
-          "description": "Store owner logs in",
-          "query": {
-            "username": "{{store_owner_username}}",
-            "password": "{{test_password}}"
-          },
-          "expect": {
-            "status": 200,
-            "body_contains": {
-              "token": "{{save:store_owner_token}}"
-            }
-          }
-        },
-        {
-          "action": "PUT /api/v3/pet",
-          "description": "Store owner attempts to change sold pet to available (should fail)",
-          "headers": {
-            "Authorization": "Bearer {{store_owner_token}}"
-          },
-          "body": {
-            "id": "{{sold_pet_id}}",
-            "name": "Previously Sold Pet",
-            "status": "available",
-            "category": {
-              "id": 1,
-              "name": "Dogs"
-            },
-            "photoUrls": [
-              "https://example.com/dog.jpg"
-            ]
-          },
-          "expect": {
-            "status": 400,
-            "body_contains": {
-              "message": "Invalid status transition. Admin required to change sold pets back to available."
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "cannot_modify_delivered_orders",
-      "description": "Pre-condition test: Delivered orders cannot be modified or cancelled",
+      "name": "cannot_cancel_non_placed_orders",
+      "description": "Orders can only be cancelled if they have 'placed' status",
       "category": "error_handling",
       "steps": [
         {
           "action": "GET /api/v3/user/login",
-          "description": "Customer logs in",
+          "description": "Login as customer",
           "query": {
             "username": "{{customer_username}}",
             "password": "{{test_password}}"
@@ -1962,82 +1929,18 @@
           "expect": {
             "status": 200,
             "body_contains": {
-              "token": "{{save:customer_token}}"
+              "sessionToken": "{{save:customer_token}}"
             }
           }
         },
         {
-          "action": "GET /api/v3/user/login",
-          "description": "Store owner logs in",
-          "query": {
-            "username": "{{store_owner_username}}",
-            "password": "{{test_password}}"
-          },
-          "expect": {
-            "status": 200,
-            "body_contains": {
-              "token": "{{save:store_owner_token}}"
-            }
-          }
-        },
-        {
-          "action": "POST /api/v3/store/order",
-          "description": "Customer places order",
-          "headers": {
-            "Authorization": "Bearer {{customer_token}}"
-          },
-          "body": {
-            "petId": "{{available_pet_id}}",
-            "quantity": 1,
-            "status": "placed"
-          },
-          "expect": {
-            "status": 200,
-            "body_contains": {
-              "id": "{{save:order_id}}"
-            }
-          }
-        },
-        {
-          "action": "PUT /api/v3/store/order/{{order_id}}",
-          "description": "Store owner delivers order",
-          "headers": {
-            "Authorization": "Bearer {{store_owner_token}}"
-          },
-          "body": {
-            "status": "delivered"
-          },
-          "expect": {
-            "status": 200
-          }
-        },
-        {
-          "action": "DELETE /api/v3/store/order/{{order_id}}",
-          "description": "Attempt to cancel delivered order (should fail)",
+          "action": "DELETE /api/v3/store/order/999999",
+          "description": "Try to cancel non-existent or delivered order - should fail",
           "headers": {
             "Authorization": "Bearer {{customer_token}}"
           },
           "expect": {
-            "status": 400,
-            "body_contains": {
-              "message": "Cannot cancel order that has been approved or delivered"
-            }
-          }
-        },
-        {
-          "action": "PUT /api/v3/store/order/{{order_id}}",
-          "description": "Attempt to modify delivered order (should fail)",
-          "headers": {
-            "Authorization": "Bearer {{store_owner_token}}"
-          },
-          "body": {
-            "status": "placed"
-          },
-          "expect": {
-            "status": 400,
-            "body_contains": {
-              "message": "Cannot modify delivered orders"
-            }
+            "status": 400
           }
         }
       ]

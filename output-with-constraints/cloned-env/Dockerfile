@@ -1,30 +1,29 @@
-FROM node:20-alpine
+FROM node:20-slim
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@9.15.1 --activate
+# Enable corepack for pnpm
+RUN corepack enable
 
-# Set working directory
+# Install pnpm globally with specific version
+RUN corepack prepare pnpm@9.15.1 --activate
+
 WORKDIR /app
 
 # Copy package files
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
-COPY server/package.json ./server/
+COPY package.json pnpm-workspace.yaml ./
+COPY server/package.json server/
+COPY data/ data/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
 # Copy source code
-COPY . .
+COPY server/ server/
 
 # Build the application
-RUN pnpm build
+RUN pnpm --filter server build
 
 # Expose port
 EXPOSE 3002
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3002
-
-# Start the application
-CMD ["pnpm", "start"]
+# Start the server
+CMD ["pnpm", "--filter", "server", "start"]
