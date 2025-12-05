@@ -477,15 +477,7 @@ If workflow-validation fails, you MUST fix the issues before completing:
 - BUSINESS LOGIC issues: Implement the validation rules and state transitions from business_requirements
 
 The workflows represent the expected behavior. If they fail, your code is wrong and needs fixing.
-
-If you've tried 3+ times to fix the same failing workflows and are still stuck:
-- Use request_user_help to ask for guidance
-- Describe what's failing, what you've tried, and ask a specific question
-- The user can help debug or adjust expectations
-
-NEVER call complete_generation with failing workflow tests. Either:
-1. Fix the issues and get all tests passing, OR
-2. Use request_user_help to get user guidance
+Do not give up - keep iterating until all workflows pass or you run out of iterations.
 
 The moment you see "success": true from validate_environment, your next action must be complete_generation.
 """
@@ -606,50 +598,6 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
                     },
                     "required": ["summary"]
                 }
-            },
-            {
-                "name": "request_user_help",
-                "description": """Request help from the user when you're stuck on workflow test failures.
-
-Use this tool when:
-- You've tried multiple fixes but workflows keep failing
-- You don't understand why a test is failing
-- The fix_guidance doesn't help resolve the issue
-- You've been stuck on the same errors for 3+ validation attempts
-
-DO NOT use complete_generation with failing tests. Use this tool instead to get user guidance.
-
-The user can then:
-- Explain what's wrong
-- Suggest a specific fix
-- Adjust the workflow expectations if they're incorrect
-- Help debug the issue
-
-This is MUCH better than giving up with failing tests!""",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "problem_summary": {
-                            "type": "string",
-                            "description": "Brief summary of what's failing and what you've tried"
-                        },
-                        "failing_workflows": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "List of workflow names that are failing"
-                        },
-                        "attempted_fixes": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "List of fixes you've already attempted"
-                        },
-                        "specific_question": {
-                            "type": "string",
-                            "description": "Specific question for the user about how to proceed"
-                        }
-                    },
-                    "required": ["problem_summary", "failing_workflows", "specific_question"]
-                }
             }
         ]
 
@@ -677,8 +625,6 @@ This is MUCH better than giving up with failing tests!""",
                 "summary": tool_input.get("summary", ""),
                 "generated_files": self.generated_files
             }
-        elif tool_name == "request_user_help":
-            return self._request_user_help(tool_input)
         else:
             raise ValueError(f"Unknown tool: {tool_name}")
 
@@ -769,55 +715,6 @@ This is MUCH better than giving up with failing tests!""",
         return {
             "success": True,
             "db": params.get('output_path')
-        }
-
-    def _request_user_help(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Request help from the user when stuck on workflow failures"""
-        problem_summary = params.get("problem_summary", "Unknown problem")
-        failing_workflows = params.get("failing_workflows", [])
-        attempted_fixes = params.get("attempted_fixes", [])
-        specific_question = params.get("specific_question", "How should I proceed?")
-
-        # Display the help request to the user
-        print(f"\n{'='*70}")
-        print("🆘 AGENT REQUESTING HELP")
-        print(f"{'='*70}\n")
-
-        print(f"📋 Problem Summary:\n   {problem_summary}\n")
-
-        if failing_workflows:
-            print(f"❌ Failing Workflows ({len(failing_workflows)}):")
-            for wf in failing_workflows:
-                print(f"   - {wf}")
-            print()
-
-        if attempted_fixes:
-            print(f"🔧 Attempted Fixes:")
-            for fix in attempted_fixes:
-                print(f"   - {fix}")
-            print()
-
-        print(f"❓ Question:\n   {specific_question}\n")
-        print(f"{'='*70}")
-
-        # Get user input
-        print("\nPlease provide guidance (or 'skip' to continue without fix):")
-        try:
-            user_response = input("> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            user_response = "skip"
-
-        if user_response.lower() == "skip":
-            return {
-                "user_response": None,
-                "action": "continue",
-                "message": "User chose to skip. Continue with best effort."
-            }
-
-        return {
-            "user_response": user_response,
-            "action": "apply_fix",
-            "message": f"User provided guidance: {user_response}"
         }
 
     def _validate_environment(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -1314,9 +1211,8 @@ This is MUCH better than giving up with failing tests!""",
             except Exception as e:
                 print(f"   ⚠️  Warning: Could not reset database: {e}")
 
-        # Pass data_dir so runner can reset DB between workflows
-        runner = WorkflowRunner(base_url=f"http://localhost:{self.port}", data_dir=data_dir)
-        result = runner.run_workflows(workflows, reset_between=True)
+        runner = WorkflowRunner(base_url=f"http://localhost:{self.port}")
+        result = runner.run_workflows(workflows)
 
         return result
 

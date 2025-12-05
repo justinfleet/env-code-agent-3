@@ -728,21 +728,6 @@ After analyzing all constraints, use output_requirements to provide:
    - Cannot delete pet with active orders
    - Cannot delete user with active orders
 
-## IMPORTANT: Efficiency
-
-You MUST batch tool calls to be efficient:
-- Call analyze_constraint for ALL constraints in a SINGLE message (multiple tool calls in one response)
-- Then call output_requirements once with the complete synthesis
-- This should take only 2-3 iterations total, NOT one iteration per constraint!
-
-Example of CORRECT batching (one message with multiple tool calls):
-```
-[analyze_constraint for constraint 1]
-[analyze_constraint for constraint 2]
-[analyze_constraint for constraint 3]
-... (all in the same response)
-```
-
 Be thorough and specific - this specification will be used to generate actual working code.
 """
 
