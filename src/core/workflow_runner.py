@@ -32,27 +32,30 @@ class WorkflowRunner:
         self.results: List[Dict[str, Any]] = []
 
     def _reset_database(self) -> bool:
-        """Reset database to seed state between workflows to prevent state pollution"""
-        if not self.data_dir:
-            return False
-
-        seed_db = os.path.join(self.data_dir, 'seed.db')
-        current_db = os.path.join(self.data_dir, 'current.sqlite')
-
-        if not os.path.exists(seed_db):
-            return False
-
+        """Reset database to seed state between workflows by calling /reset endpoint"""
         try:
-            # Remove WAL/SHM files if they exist
-            for ext in ['-wal', '-shm']:
-                wal_file = current_db + ext
-                if os.path.exists(wal_file):
-                    os.remove(wal_file)
-            # Copy seed.db to current.sqlite
-            shutil.copy2(seed_db, current_db)
-            return True
+            # Call the server's reset endpoint to properly reset the database
+            url = f"{self.base_url}/reset"
+            req = urllib.request.Request(url, data=b'', method='POST')
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return response.status == 200
         except Exception:
-            return False
+            # Fallback to file copy if endpoint doesn't exist
+            if not self.data_dir:
+                return False
+            seed_db = os.path.join(self.data_dir, 'seed.db')
+            current_db = os.path.join(self.data_dir, 'current.sqlite')
+            if not os.path.exists(seed_db):
+                return False
+            try:
+                for ext in ['-wal', '-shm']:
+                    wal_file = current_db + ext
+                    if os.path.exists(wal_file):
+                        os.remove(wal_file)
+                shutil.copy2(seed_db, current_db)
+                return True
+            except Exception:
+                return False
 
     def run_workflows(self, workflows: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
