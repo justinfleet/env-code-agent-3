@@ -318,7 +318,7 @@ Each workflow has:
   expect:
     status: 200
     body_contains:
-      sessionToken: "{{save:auth_token}}"  # Note: field name may vary (token, sessionToken, etc.)
+      token: "{{save:auth_token}}"  # ALWAYS use "token" field name
 
 - action: "GET /pet/{{pet_id}}"        # Use saved variables
   headers:
@@ -329,9 +329,8 @@ Each workflow has:
       status: "available"
 ```
 
-IMPORTANT: Check the "Login Endpoint Details" section below to determine:
-- Whether login is GET (query params) or POST (body)
-- What the response field name is (token vs sessionToken)
+IMPORTANT: Check the "Login Endpoint Details" section to determine if login uses GET or POST.
+Always expect the login response to have a `token` field (not `sessionToken`).
 
 ## Variable Syntax:
 - `{{variable}}` - Use a previously saved variable

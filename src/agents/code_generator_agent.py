@@ -252,7 +252,8 @@ cloned-env/
 - Use better-sqlite3 for database (Node.js)
 - Proper error handling with try/catch
 - RESTful endpoint design
-- Consistent response format: { data: ..., error: ... }
+- Return data directly (NOT wrapped in `{ data: ... }`)
+- Login endpoint MUST return `{ token: "..." }` (use `token`, not `sessionToken`)
 
 ## Required Configuration Files:
 
