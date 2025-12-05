@@ -36,3 +36,5 @@ npm-debug.log*
 *.sqlite3
 
 output
+output-with-constraints/
+venv/

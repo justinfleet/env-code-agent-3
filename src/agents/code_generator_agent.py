@@ -1154,7 +1154,9 @@ IMPORTANT: Do not call complete_generation until validate_environment returns su
         if not workflows:
             return {"success": True, "passed": 0, "failed": 0, "total": 0}
 
-        runner = WorkflowRunner(base_url=f"http://localhost:{self.port}")
+        # Pass data_dir so the runner can reset DB between workflows to prevent state pollution
+        data_dir = os.path.join(self.output_dir, 'data')
+        runner = WorkflowRunner(base_url=f"http://localhost:{self.port}", data_dir=data_dir)
         result = runner.run_workflows(workflows)
 
         return result

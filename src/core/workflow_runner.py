@@ -4,6 +4,8 @@ Workflow Test Runner - executes validation workflows against a running API
 
 import re
 import json
+import os
+import shutil
 import urllib.request
 import urllib.error
 from typing import Dict, Any, List, Optional
@@ -23,10 +25,34 @@ class WorkflowRunner:
         "sold_pet_id": "6",
     }
 
-    def __init__(self, base_url: str = "http://localhost:3002"):
+    def __init__(self, base_url: str = "http://localhost:3002", data_dir: str = None):
         self.base_url = base_url.rstrip('/')
+        self.data_dir = data_dir  # Path to data directory for DB reset between workflows
         self.variables: Dict[str, str] = dict(self.BUILTIN_VARIABLES)
         self.results: List[Dict[str, Any]] = []
+
+    def _reset_database(self) -> bool:
+        """Reset database to seed state between workflows to prevent state pollution"""
+        if not self.data_dir:
+            return False
+
+        seed_db = os.path.join(self.data_dir, 'seed.db')
+        current_db = os.path.join(self.data_dir, 'current.sqlite')
+
+        if not os.path.exists(seed_db):
+            return False
+
+        try:
+            # Remove WAL/SHM files if they exist
+            for ext in ['-wal', '-shm']:
+                wal_file = current_db + ext
+                if os.path.exists(wal_file):
+                    os.remove(wal_file)
+            # Copy seed.db to current.sqlite
+            shutil.copy2(seed_db, current_db)
+            return True
+        except Exception:
+            return False
 
     def run_workflows(self, workflows: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -42,7 +68,11 @@ class WorkflowRunner:
         passed = 0
         failed = 0
 
-        for workflow in workflows:
+        for i, workflow in enumerate(workflows):
+            # Reset database before each workflow (except the first) to prevent state pollution
+            if self.data_dir and i > 0:
+                self._reset_database()
+
             result = self.run_workflow(workflow)
             self.results.append(result)
 
